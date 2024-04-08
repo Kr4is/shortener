@@ -21,7 +21,7 @@ def read_root():
     return "Welcome to the URL shortener API :)"
 
 
-@app.post("/url")
+@app.post("/api/url")
 def create_url(url: str):
     if not validators.url(url):
         raise_bad_request(message="Your provided URL is not valid")
@@ -31,7 +31,7 @@ def create_url(url: str):
     return db_url
 
 
-@app.get("/{url_key}")
+@app.get("/api/{url_key}")
 def forward_to_target_url(url_key: str):
     if original_url := crud.get_url_by_key(url_key=url_key):
         return RedirectResponse(original_url)
