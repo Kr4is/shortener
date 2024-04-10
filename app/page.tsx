@@ -12,8 +12,7 @@ export default function Home() {
     e.preventDefault();
 
     try {
-      const petition = '/api/url?url=' + web
-      const res = await fetch(petition, {
+      const res = await fetch('/api/url', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

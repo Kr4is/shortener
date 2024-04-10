@@ -2,6 +2,8 @@ import validators
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
+
+from .models import Url
 from . import crud
 
 app = FastAPI()
@@ -22,11 +24,13 @@ def read_root():
 
 
 @app.post("/api/url")
-def create_url(url: str):
-    if not validators.url(url):
+def create_url(url: Url):
+    requested_url = url.dict()["url"]
+
+    if not validators.url(requested_url):
         raise_bad_request(message="Your provided URL is not valid")
 
-    db_url = crud.create_url(url=url)
+    db_url = crud.create_url(url=requested_url)
 
     return db_url
 
