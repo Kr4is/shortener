@@ -1,66 +1,65 @@
 'use client';
 
-import Image from "next/image";
-import Link from "next/link";
-
-import { useState, useEffect } from "react"
+import { useState } from 'react';
 
 export default function Home() {
-
-  var created_link = ''
-
-  const [web, setWeb] = useState('')
+  const [web, setWeb] = useState('');
+  const [shortenedUrl, setShortenedUrl] = useState('');
+  const [showShortenedUrl, setShowShortenedUrl] = useState(false);
 
   const handleSubmit = async (e) => {
-    e.preventDefault()
-    const submitData = { web }
-    const petition = "/api/url?url=" + web
+    e.preventDefault();
 
     try {
+      const petition = '/api/url?url=' + web
       const res = await fetch(petition, {
         method: 'POST',
-        body: JSON.stringify(submitData),
         headers: {
-          'content-type': 'application/json'
-        }
-      })
-      console.log(res)
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ url: web }),
+      });
+
       if (res.ok) {
-        created_link = await res.json()
-        console.log(created_link)
-        document.getElementById("created_link_section").style.display = "block";
-        document.getElementById("created_link").innerHTML = window.location.origin + "/api/" + created_link;
+        var shortUrl = await res.json();
+        setShortenedUrl(window.location.origin + '/api/' + shortUrl);
+        setShowShortenedUrl(true);
       } else {
-        console.log("Oops! Something is wrong.")
+        console.log('Oops! Something went wrong.');
       }
     } catch (error) {
-      console.log(error)
+      console.error('Error:', error);
     }
-  }
+  };
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className=" flex flex-col justify-center items-center w-full p-80 ">
-        <h1 className=" w-full text-center m-4 font-semibold text-lg ">Website Url Shortener</h1>
-        <form className=" flex w-full flex-col justify-center items-center " onSubmit={handleSubmit}>
-          <div className=" flex w-1/2 justify-center items-center gap-4 ">
+    <main className="flex min-h-screen items-center justify-center p-4 md:p-8">
+      <div className="max-w-lg w-full mx-auto">
+        <h1 className="text-2xl font-semibold text-center mb-8">Website URL Shortener</h1>
+        <form className="w-full" onSubmit={handleSubmit}>
+          <div className="flex flex-col md:flex-row gap-4">
             <input
               type="text"
               name="url"
-              placeholder="Enter the url"
-              onChange={e => setWeb(e.target.value)}
-              className=" border p-2 px-4 rounded text-black outline-none "
+              placeholder="Enter the URL"
+              value={web}
+              onChange={(e) => setWeb(e.target.value)}
+              className="w-full md:w-2/3 border p-2 rounded focus:outline-none focus:border-blue-500 text-black"
             />
             <button
               type="submit"
-              className=" border-blue-500 bg-blue-500 text-white p-2 px-4 rounded-md "
-            >Shorten</button>
+              className="w-full md:w-auto bg-blue-500 text-white px-12 py-2 rounded-md hover:bg-blue-600 transition duration-300"
+            >
+              Shorten
+            </button>
           </div>
         </form>
-        <div id='created_link_section' className="bg-white border-t border-b border-blue-500 text-blue-700 px-4 py-3" role="alert" style={{ display: 'none' }}>
-          <p className="font-bold">Your shortened url is:</p>
-          <p id='created_link' className="text-sm"></p>
-        </div>
+        {showShortenedUrl && (
+          <div className="bg-white border-t border-b border-blue-500 text-blue-700 px-4 py-3 my-5">
+            <p className="font-bold mb-2">Your shortened URL is:</p>
+            <p className="text-sm break-all">{shortenedUrl}</p>
+          </div>
+        )}
       </div>
     </main>
   );
