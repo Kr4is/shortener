@@ -6,6 +6,7 @@ export default function Home() {
   const [web, setWeb] = useState('');
   const [shortenedUrl, setShortenedUrl] = useState('');
   const [showShortenedUrl, setShowShortenedUrl] = useState(false);
+  const [showInvalidUrl, setShowInvalidUrl] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -23,9 +24,12 @@ export default function Home() {
       if (res.ok) {
         var shortUrl = await res.json();
         setShortenedUrl(window.location.origin + '/api/' + shortUrl);
+        setShowInvalidUrl(false);
         setShowShortenedUrl(true);
       } else {
         console.log('Oops! Something went wrong.');
+        setShowShortenedUrl(false);
+        setShowInvalidUrl(true);
       }
     } catch (error) {
       console.error('Error:', error);
@@ -58,6 +62,12 @@ export default function Home() {
           <div className="bg-white border-t border-b border-blue-500 text-blue-700 px-4 py-3 my-5">
             <p className="font-bold mb-2">Your shortened URL is:</p>
             <p className="text-sm break-all">{shortenedUrl}</p>
+          </div>
+        )}
+        {showInvalidUrl && (
+          <div className="bg-white border-t border-b border-red-500 text-red-700 px-4 py-3 my-5">
+            <p className="font-bold mb-2">Your URL is not valid:</p>
+            <p className="text-sm break-all">The accepted format is: https://url.extension or http://url.extension</p>
           </div>
         )}
       </div>
