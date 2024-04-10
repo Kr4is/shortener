@@ -8,7 +8,7 @@ export default function Home() {
   const [showShortenedUrl, setShowShortenedUrl] = useState(false);
   const [showInvalidUrl, setShowInvalidUrl] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.ChangeEvent<any>) => {
     e.preventDefault();
 
     try {
