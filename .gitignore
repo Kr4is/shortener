@@ -27,9 +27,6 @@ yarn-error.log*
 # local env files
 .env*.local
 
-# vercel
-.vercel
-
 # typescript
 *.tsbuildinfo
 next-env.d.ts
@@ -37,4 +34,5 @@ next-env.d.ts
 # python
 **/__pycache__/
 venv
+.venv
 .env

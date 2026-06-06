@@ -1,51 +1,43 @@
-import os
+from sqlalchemy.orm import Session
 
-from supabase import create_client, Client
-from dotenv import load_dotenv
 from . import keygen
-
-load_dotenv()
-supabase_url: str = os.environ.get("SUPABASE_URL")
-supabase_key: str = os.environ.get("SUPABASE_KEY")
-
-supabase: Client = create_client(supabase_url, supabase_key)
+from .models import Short
 
 
-def create_url(url: str) -> str:
+def key_exists_by_id(db: Session, key: str) -> bool:
+    return db.query(Short).filter(Short.id == key).first() is not None
 
-    secret_key = secret_key_from_existing_url(url)
 
-    if not secret_key:
-        key = keygen.create_unique_random_key()
-        secret_key = f"{key}_{keygen.create_random_key(length=8)}"
-        print(f"adding : {secret_key}")
-        # supabase.table('shorts').insert({"id": key, "secret_key": secret_key, "original_url": url}).execute()
+def _create_unique_id(db: Session) -> str:
+    key = keygen.create_random_key()
+    while key_exists_by_id(db, key):
+        key = keygen.create_random_key()
+    return key
+
+
+def create_url(db: Session, url: str) -> str:
+    existing = secret_key_from_existing_url(db, url)
+    if existing:
+        return existing
+
+    key = _create_unique_id(db)
+    secret_key = f"{key}_{keygen.create_random_key(length=8)}"
+
+    db.add(Short(id=key, secret_key=secret_key, original_url=url))
+    db.commit()
 
     return secret_key
 
 
-def get_url_by_key(url_key: str) -> str:
-
-    response = (
-        supabase.table("shorts")
-        .select("original_url")
-        .eq("secret_key", url_key)
-        .execute()
-    )
-    if response.data:
-        print(response.data)
-        return response.data[0]["original_url"]
-
+def get_url_by_key(db: Session, url_key: str) -> str | None:
+    short = db.query(Short).filter(Short.secret_key == url_key).first()
+    if short:
+        return short.original_url
     return None
 
 
-def secret_key_from_existing_url(url: str) -> str:
-
-    response = (
-        supabase.table("shorts").select("secret_key").eq("original_url", url).execute()
-    )
-
-    if response.data:
-        return response.data[0]["secret_key"]
-
+def secret_key_from_existing_url(db: Session, url: str) -> str | None:
+    short = db.query(Short).filter(Short.original_url == url).first()
+    if short:
+        return short.secret_key
     return None

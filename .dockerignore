@@ -1,0 +1,17 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+!.env.example
+__pycache__
+*.pyc
+.venv
+venv
+coverage
+.DS_Store
+*.md
+!README.md
+.cursor
+plans

@@ -1,52 +1,151 @@
-# Website Shortener Tool
+# Website URL Shortener
 
-<p align="center">
-  <a href="https://nextjs-fastapi-starter.vercel.app/">
-    <img src="https://assets.vercel.com/image/upload/v1588805858/repositories/vercel/logo.png" height="96">
-    <h3 align="center">Next.js FastAPI Starter</h3>
-  </a>
-</p>
+Self-hosted URL shortener built with **Next.js**, **FastAPI**, and **PostgreSQL**. Designed to run entirely on your own infrastructure (e.g. Proxmox) with Docker — no Vercel or Supabase dependencies.
 
-<p align="center">Simple Next.js boilerplate that uses <a href="https://fastapi.tiangolo.com/">FastAPI</a> as the API backend.</p>
+## Stack
 
-<br/>
+- **Frontend:** Next.js 13 + React + Tailwind CSS
+- **API:** FastAPI + SQLAlchemy
+- **Database:** PostgreSQL 16 (Docker volume)
+- **CI:** GitHub Actions (lint, tests, Docker build)
+- **Python tooling:** uv (dependency management)
+- **Quality:** pre-commit, Ruff, ESLint, Prettier
 
-## Introduction
-
-This is a hybrid Next.js + Python app that uses Next.js as the frontend and FastAPI as the API backend. One great use case of this is to write Next.js apps that use Python AI libraries on the backend.
-
-## How It Works
-
-The Python/FastAPI server is mapped into to Next.js app under `/api/`.
-
-This is implemented using [`next.config.js` rewrites](https://github.com/digitros/nextjs-fastapi/blob/main/next.config.js) to map any request to `/api/:path*` to the FastAPI API, which is hosted in the `/api` folder.
-
-On localhost, the rewrite will be made to the `127.0.0.1:8000` port, which is where the FastAPI server is running.
-
-In production, the FastAPI server is hosted as [Python serverless functions](https://vercel.com/docs/concepts/functions/serverless-functions/runtimes/python) on Vercel.
-
-## Getting Started
-
-First, install the dependencies:
+## Quick start (Docker)
 
 ```bash
+git clone <repo-url>
+cd shortener
+cp .env.example .env   # set POSTGRES_PASSWORD
+docker compose up -d --build
+```
+
+Open [http://localhost:3000](http://localhost:3000).
+
+Check services:
+
+```bash
+docker compose ps
+curl http://localhost:3000/api/health
+```
+
+### Troubleshooting: API unhealthy / password authentication failed
+
+PostgreSQL stores the password when the `postgres_data` volume is **first** created. If you later change `POSTGRES_PASSWORD` in `.env`, the API will use the new value but Postgres will still expect the old one.
+
+Fix by recreating the volume (this deletes stored URLs):
+
+```bash
+docker compose down -v
+docker compose up -d --build
+```
+
+Or set `POSTGRES_PASSWORD` in `.env` back to the password used when the volume was created.
+
+## Local development
+
+Install [uv](https://docs.astral.sh/uv/getting-started/installation/) for Python dependency management.
+
+### With Docker (recommended)
+
+Start only PostgreSQL:
+
+```bash
+docker compose up -d postgres
+cp .env.example .env
+```
+
+Run the API and frontend locally:
+
+```bash
+uv sync --group dev
+export DATABASE_URL=postgresql+psycopg://shortener:change-me@localhost:5432/shortener
+
+# Terminal 1
+uv run uvicorn api.index:app --reload
+
+# Terminal 2
 npm install
-# or
-yarn
-# or
-pnpm install
+npm run dev
 ```
 
-Then, run the development server:
+### Pre-commit
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+uv sync --group dev
+pre-commit install
+pre-commit run --all-files
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## API endpoints
 
-The FastApi server will be running on [http://127.0.0.1:8000](http://127.0.0.1:8000) – feel free to change the port in `package.json` (you'll also need to update it in `next.config.js`).
+| Method | Path          | Description                                       |
+| ------ | ------------- | ------------------------------------------------- |
+| `GET`  | `/api/health` | Health check (includes DB connectivity)           |
+| `POST` | `/api/url`    | Create a shortened URL (`{"url": "https://..."}`) |
+| `GET`  | `/s/{key}`    | Redirect to the original URL                      |
+| `GET`  | `/docs`       | FastAPI Swagger UI                                |
+
+Short links use the format `https://your-domain/s/{key}`.
+
+## Environment variables
+
+| Variable               | Description                           | Default           |
+| ---------------------- | ------------------------------------- | ----------------- |
+| `POSTGRES_USER`        | PostgreSQL user                       | `shortener`       |
+| `POSTGRES_PASSWORD`    | PostgreSQL password                   | —                 |
+| `POSTGRES_DB`          | Database name                         | `shortener`       |
+| `DATABASE_URL`         | SQLAlchemy connection string          | —                 |
+| `WEB_PORT`             | Host port for the web service         | `3000`            |
+| `FASTAPI_INTERNAL_URL` | Internal API URL for Next.js rewrites | `http://api:8000` |
+
+See [`.env.example`](.env.example) for a full template.
+
+## Deploy on Proxmox
+
+1. Create an LXC/VM with Docker installed.
+2. Clone the repository and configure `.env`.
+3. Run `docker compose up -d --build`.
+4. (Optional) Put a reverse proxy (Caddy, Nginx, Traefik) in front of port 3000 for HTTPS.
+
+### Database backup
+
+```bash
+# Dump
+docker compose exec postgres pg_dump -U shortener shortener > backup.sql
+
+# Restore
+docker compose exec -T postgres psql -U shortener shortener < backup.sql
+```
+
+Or back up the `postgres_data` Docker volume periodically.
+
+## Testing
+
+```bash
+docker compose up -d postgres
+export DATABASE_URL=postgresql+psycopg://shortener:change-me@localhost:5432/shortener
+uv sync --group dev
+uv run pytest -v
+npm run lint
+npm run format:check
+```
+
+## Project structure
+
+```
+├── api/              # FastAPI backend
+├── app/              # Next.js frontend
+├── db/init.sql       # PostgreSQL schema
+├── tests/            # API integration tests
+├── pyproject.toml    # Python dependencies (uv)
+├── uv.lock
+├── docker-compose.yml
+├── Dockerfile.api
+├── Dockerfile.web
+└── .github/workflows/ci.yaml
+```
+
+## License
+
+See [LICENSE](LICENSE).

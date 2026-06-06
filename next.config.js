@@ -1,27 +1,28 @@
 /** @type {import('next').NextConfig} */
+const fastApiUrl = process.env.FASTAPI_INTERNAL_URL || 'http://127.0.0.1:8000';
+
 const nextConfig = {
+  output: 'standalone',
   rewrites: async () => {
+    const isDev = process.env.NODE_ENV === 'development';
+    const apiBase = isDev ? 'http://127.0.0.1:8000' : fastApiUrl;
+
     return [
       {
-        source: "/api/:path*",
-        destination:
-          process.env.NODE_ENV === "development"
-            ? "http://127.0.0.1:8000/api/:path*"
-            : "/api/",
+        source: '/api/:path*',
+        destination: `${apiBase}/api/:path*`,
       },
       {
-        source: "/docs",
-        destination:
-          process.env.NODE_ENV === "development"
-            ? "http://127.0.0.1:8000/docs"
-            : "/api/docs",
+        source: '/s/:path*',
+        destination: `${apiBase}/s/:path*`,
       },
       {
-        source: "/openapi.json",
-        destination:
-          process.env.NODE_ENV === "development"
-            ? "http://127.0.0.1:8000/openapi.json"
-            : "/api/openapi.json",
+        source: '/docs',
+        destination: `${apiBase}/docs`,
+      },
+      {
+        source: '/openapi.json',
+        destination: `${apiBase}/openapi.json`,
       },
     ];
   },

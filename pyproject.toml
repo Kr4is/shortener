@@ -1,0 +1,30 @@
+[project]
+name = "shortener"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi==0.100.1",
+    "uvicorn[standard]==0.23.2",
+    "sqlalchemy>=2.0,<3.0",
+    "psycopg[binary]>=3.1,<4.0",
+    "validators",
+    "python-dotenv",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.8,<1.0",
+    "pytest>=8.0,<9.0",
+    "httpx>=0.24,<0.28",
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+filterwarnings = ["ignore::DeprecationWarning"]
