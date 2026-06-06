@@ -3,9 +3,10 @@
 import Button from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
+import { cn } from '@/lib/utils';
 import { createShortUrl, fetchUrlPreview } from '@/lib/api';
 import { motion } from 'framer-motion';
-import { AlertCircle, Link2, Loader2, Tag } from 'lucide-react';
+import { AlertCircle, Link2, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import ResultCard from './ResultCard';
@@ -72,7 +73,8 @@ export default function ShortenForm() {
       setShortenedUrl(shortUrl);
       toast.success('Link shortened successfully');
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Something went wrong';
+      const message =
+        err instanceof Error ? err.message : 'Something went wrong';
       setError(message);
       toast.error(message);
     } finally {
@@ -83,18 +85,18 @@ export default function ShortenForm() {
   return (
     <div className="space-y-6">
       <motion.div
-        initial={{ opacity: 0, y: 12 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.4, delay: 0.1 }}
       >
-        <Card className="max-w-2xl mx-auto">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <Card elevated className="max-w-2xl mx-auto">
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="text-sm font-medium text-muted mb-1.5 block">
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
                 Long URL
               </label>
               <div className="relative">
-                <Link2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
+                <Link2 className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                 <Input
                   type="url"
                   placeholder="https://your-long-url.com/page"
@@ -105,51 +107,62 @@ export default function ShortenForm() {
                 />
               </div>
               {previewLoading && (
-                <p className="mt-1 text-xs text-muted">Loading preview...</p>
+                <p className="mt-2 text-xs text-muted">Loading preview...</p>
               )}
               {previewTitle && !previewLoading && (
-                <p className="mt-1 text-xs text-muted truncate" title={previewTitle}>
-                  Preview: {previewTitle}
-                </p>
+                <div className="mt-2 inline-flex max-w-full items-center rounded-full bg-accent-muted/70 border border-accent/20 px-3 py-1">
+                  <span
+                    className="text-xs text-foreground truncate"
+                    title={previewTitle}
+                  >
+                    {previewTitle}
+                  </span>
+                </div>
               )}
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted mb-1.5 block">
-                Custom alias <span className="font-normal">(optional)</span>
+              <label className="text-sm font-medium text-foreground mb-1.5 block">
+                Custom alias{' '}
+                <span className="font-normal text-muted">(optional)</span>
               </label>
-              <div className="relative">
-                <Tag className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-                <Input
+              <div className="flex rounded-xl border border-border bg-surface-elevated overflow-hidden focus-within:ring-2 focus-within:ring-accent/25 focus-within:border-accent/40 transition-all">
+                <span className="inline-flex items-center px-3.5 font-mono text-sm text-muted border-r border-border bg-accent/5">
+                  /s/
+                </span>
+                <input
                   type="text"
                   placeholder="my-custom-link"
                   value={alias}
                   onChange={(e) => setAlias(e.target.value)}
                   disabled={isLoading}
-                  className="pl-10"
+                  className="flex-1 bg-transparent px-3 py-2.5 text-foreground placeholder:text-muted focus:outline-none disabled:opacity-50"
                 />
               </div>
-              <p className="mt-1 text-xs text-muted">
-                Your link will be /s/{alias.trim() || 'auto-generated-key'}
-              </p>
             </div>
 
             <div>
-              <label className="text-sm font-medium text-muted mb-1.5 block">
+              <label className="text-sm font-medium text-foreground mb-2 block">
                 Expires in
               </label>
-              <select
-                value={expiresInDays}
-                onChange={(e) => setExpiresInDays(Number(e.target.value))}
-                disabled={isLoading}
-                className="w-full rounded-lg border border-border bg-card text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
-              >
+              <div className="flex flex-wrap gap-2">
                 {EXPIRY_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
+                  <button
+                    key={opt.value}
+                    type="button"
+                    disabled={isLoading}
+                    onClick={() => setExpiresInDays(opt.value)}
+                    className={cn(
+                      'rounded-xl px-4 py-2 text-sm font-medium transition-all border',
+                      expiresInDays === opt.value
+                        ? 'bg-accent text-accent-foreground border-accent shadow-accent-sm'
+                        : 'bg-surface-elevated text-muted border-border hover:border-accent/30 hover:text-foreground'
+                    )}
+                  >
                     {opt.label}
-                  </option>
+                  </button>
                 ))}
-              </select>
+              </div>
             </div>
 
             {url && !isUrlValid && (
@@ -191,7 +204,7 @@ export default function ShortenForm() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="max-w-2xl mx-auto rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive"
+          className="max-w-2xl mx-auto rounded-xl border border-destructive/30 bg-destructive/10 px-4 py-3 text-destructive"
         >
           <p className="flex items-center gap-2 text-sm font-medium">
             <AlertCircle className="h-4 w-4 shrink-0" />

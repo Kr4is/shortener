@@ -17,13 +17,16 @@ import {
 export default function TopLinksChart({ links }: { links: TopLink[] }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  const tickColor = isDark ? '#94a3b8' : '#64748b';
-  const gridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(100,116,139,0.2)';
+  const tickColor = isDark ? '#a8a29e' : '#78716c';
+  const gridColor = isDark
+    ? 'rgba(168,162,158,0.12)'
+    : 'rgba(120,113,108,0.15)';
+  const fillColor = isDark ? '#fbbf24' : '#d97706';
 
   if (links.length === 0) {
     return (
       <Card>
-        <CardTitle className="mb-2">Top links</CardTitle>
+        <CardTitle className="mb-2 normal-case">Top links</CardTitle>
         <p className="text-sm text-muted">No clicks recorded yet.</p>
       </Card>
     );
@@ -36,7 +39,7 @@ export default function TopLinksChart({ links }: { links: TopLink[] }) {
 
   return (
     <Card>
-      <CardTitle className="mb-4">Top 5 links by clicks</CardTitle>
+      <CardTitle className="mb-4 normal-case">Top 5 links by clicks</CardTitle>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ left: 8 }}>
@@ -54,17 +57,13 @@ export default function TopLinksChart({ links }: { links: TopLink[] }) {
             />
             <Tooltip
               contentStyle={{
-                background: isDark ? '#0f172a' : '#ffffff',
-                border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-                borderRadius: '8px',
-                color: isDark ? '#f1f5f9' : '#0f172a',
+                background: isDark ? '#1c1917' : '#ffffff',
+                border: `1px solid ${isDark ? '#44403c' : '#e7e5e4'}`,
+                borderRadius: '12px',
+                color: isDark ? '#fafaf9' : '#1c1917',
               }}
             />
-            <Bar
-              dataKey="clicks"
-              fill={isDark ? '#818cf8' : '#4f46e5'}
-              radius={[0, 4, 4, 0]}
-            />
+            <Bar dataKey="clicks" fill={fillColor} radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

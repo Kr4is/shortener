@@ -16,14 +16,14 @@ export default function QrCodeModal({ url, open, onClose }: QrCodeModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-foreground/20 backdrop-blur-sm"
+        className="absolute inset-0 bg-foreground/15 backdrop-blur-sm"
         onClick={onClose}
       />
-      <div className="relative rounded-xl border border-border bg-card p-6 shadow-lg text-center">
+      <div className="relative rounded-2xl border border-border/80 bg-card p-6 shadow-warm-lg text-center">
         <button
           type="button"
           onClick={onClose}
-          className="absolute right-3 top-3 text-muted hover:text-foreground"
+          className="absolute right-3 top-3 text-muted hover:text-accent transition-colors"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
@@ -31,10 +31,12 @@ export default function QrCodeModal({ url, open, onClose }: QrCodeModalProps) {
         <h3 className="text-lg font-semibold text-card-foreground mb-4">
           QR Code
         </h3>
-        <div className="inline-block rounded-lg bg-white p-4">
+        <div className="inline-block rounded-xl bg-white p-4 shadow-warm">
           <QRCodeSVG value={url} size={200} />
         </div>
-        <p className="mt-4 text-xs text-muted break-all max-w-[240px]">{url}</p>
+        <p className="mt-4 font-mono text-xs text-muted break-all max-w-[240px]">
+          {url}
+        </p>
         <Button
           variant="secondary"
           size="sm"

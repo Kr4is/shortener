@@ -22,8 +22,11 @@ export default function ClicksChart({
 }) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
-  const tickColor = isDark ? '#94a3b8' : '#64748b';
-  const gridColor = isDark ? 'rgba(148,163,184,0.15)' : 'rgba(100,116,139,0.2)';
+  const tickColor = isDark ? '#a8a29e' : '#78716c';
+  const gridColor = isDark
+    ? 'rgba(168,162,158,0.12)'
+    : 'rgba(120,113,108,0.15)';
+  const strokeColor = isDark ? '#fbbf24' : '#d97706';
 
   const chartData = data.map((d) => ({
     date: new Date(d.date).toLocaleDateString(undefined, {
@@ -35,7 +38,8 @@ export default function ClicksChart({
 
   return (
     <Card>
-      <CardTitle className="mb-4">Clicks per day ({rangeLabel})</CardTitle>
+      <CardTitle className="mb-1 normal-case">Clicks per day</CardTitle>
+      <p className="text-xs text-muted mb-4">{rangeLabel}</p>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
@@ -51,18 +55,18 @@ export default function ClicksChart({
             />
             <Tooltip
               contentStyle={{
-                background: isDark ? '#0f172a' : '#ffffff',
-                border: `1px solid ${isDark ? '#334155' : '#e2e8f0'}`,
-                borderRadius: '8px',
-                color: isDark ? '#f1f5f9' : '#0f172a',
+                background: isDark ? '#1c1917' : '#ffffff',
+                border: `1px solid ${isDark ? '#44403c' : '#e7e5e4'}`,
+                borderRadius: '12px',
+                color: isDark ? '#fafaf9' : '#1c1917',
               }}
             />
             <Line
               type="monotone"
               dataKey="clicks"
-              stroke={isDark ? '#818cf8' : '#4f46e5'}
+              stroke={strokeColor}
               strokeWidth={2}
-              dot={{ fill: isDark ? '#818cf8' : '#4f46e5', r: 3 }}
+              dot={{ fill: strokeColor, r: 3 }}
               activeDot={{ r: 5 }}
             />
           </LineChart>

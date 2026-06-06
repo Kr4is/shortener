@@ -7,7 +7,13 @@ import StatsOverview from '@/components/stats/StatsOverview';
 import TopLinksChart from '@/components/stats/TopLinksChart';
 import TopReferrers from '@/components/stats/TopReferrers';
 import Button from '@/components/ui/Button';
-import { exportUrlsCsv, fetchStats, fetchUrls, StatsResponse, ShortStats } from '@/lib/api';
+import {
+  exportUrlsCsv,
+  fetchStats,
+  fetchUrls,
+  StatsResponse,
+  ShortStats,
+} from '@/lib/api';
 import { motion } from 'framer-motion';
 import { BarChart3, Download, Loader2, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -67,7 +73,7 @@ export default function StatsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-muted" />
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
       </div>
     );
   }
@@ -98,13 +104,15 @@ export default function StatsPage() {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col gap-4"
       >
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-accent/10 border border-accent/20 p-2">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15">
               <BarChart3 className="h-6 w-6 text-accent" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-foreground">Statistics</h1>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
+                Statistics
+              </h1>
               <p className="text-sm text-muted">
                 Auto-refreshes every 30 seconds · {rangeLabel}
               </p>
@@ -117,21 +125,24 @@ export default function StatsPage() {
             </Button>
             <button
               onClick={loadData}
-              className="flex items-center gap-2 text-sm text-muted hover:text-foreground transition-colors"
+              className="flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors"
             >
               <RefreshCw className="h-4 w-4" />
               Refresh
             </button>
           </div>
         </div>
-        <DateRangeFilter
-          from={dateFrom}
-          to={dateTo}
-          onFromChange={setDateFrom}
-          onToChange={setDateTo}
-          onApply={handleApplyRange}
-          onClear={handleClearRange}
-        />
+
+        <div className="rounded-2xl border border-border/80 bg-surface-elevated/60 p-4 shadow-warm">
+          <DateRangeFilter
+            from={dateFrom}
+            to={dateTo}
+            onFromChange={setDateFrom}
+            onToChange={setDateTo}
+            onApply={handleApplyRange}
+            onClear={handleClearRange}
+          />
+        </div>
       </motion.div>
 
       <StatsOverview summary={stats.summary} />

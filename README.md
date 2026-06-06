@@ -121,17 +121,17 @@ pre-commit run --all-files
 
 ## API endpoints
 
-| Method   | Path                 | Description                                                          |
-| -------- | -------------------- | -------------------------------------------------------------------- |
-| `GET`    | `/api/health`        | Health check (includes DB connectivity)                              |
-| `POST`   | `/api/url`           | Create URL (`url`, optional `alias`, optional `expires_in_days`)     |
-| `GET`    | `/api/urls`          | List all shortened URLs with click stats                             |
-| `GET`    | `/api/urls/export`   | Export links as CSV                                                  |
-| `DELETE` | `/api/urls/{slug}`   | Delete a shortened URL                                               |
-| `GET`    | `/api/stats`         | Stats (`?from=YYYY-MM-DD&to=YYYY-MM-DD` optional)                    |
-| `GET`    | `/api/preview`       | Fetch page title preview (`?url=`)                                   |
-| `GET`    | `/s/{key}`           | Redirect to original URL (tracks click, HTML 404/410 on failure)     |
-| `GET`    | `/docs`              | FastAPI Swagger UI                                                   |
+| Method   | Path               | Description                                                      |
+| -------- | ------------------ | ---------------------------------------------------------------- |
+| `GET`    | `/api/health`      | Health check (includes DB connectivity)                          |
+| `POST`   | `/api/url`         | Create URL (`url`, optional `alias`, optional `expires_in_days`) |
+| `GET`    | `/api/urls`        | List all shortened URLs with click stats                         |
+| `GET`    | `/api/urls/export` | Export links as CSV                                              |
+| `DELETE` | `/api/urls/{slug}` | Delete a shortened URL                                           |
+| `GET`    | `/api/stats`       | Stats (`?from=YYYY-MM-DD&to=YYYY-MM-DD` optional)                |
+| `GET`    | `/api/preview`     | Fetch page title preview (`?url=`)                               |
+| `GET`    | `/s/{key}`         | Redirect to original URL (tracks click, HTML 404/410 on failure) |
+| `GET`    | `/docs`            | FastAPI Swagger UI                                               |
 
 Short links use the format `https://your-domain/s/{key}` or `https://your-domain/s/{custom-alias}` when a custom alias is set.
 
@@ -162,17 +162,17 @@ Migration files live in [`db/migrations/`](db/migrations/). Fresh installs use t
 
 ## Environment variables
 
-| Variable               | Description                                      | Default           |
-| ---------------------- | ------------------------------------------------ | ----------------- |
-| `POSTGRES_USER`        | PostgreSQL user                                  | `shortener`       |
-| `POSTGRES_PASSWORD`    | PostgreSQL password                              | —                 |
-| `POSTGRES_DB`          | Database name                                    | `shortener`       |
-| `DATABASE_URL`         | SQLAlchemy connection string                     | —                 |
-| `WEB_PORT`             | Host port for the web service                    | `3000`            |
-| `FASTAPI_INTERNAL_URL` | Internal API URL for Next.js rewrites            | `http://api:8000` |
-| `ADMIN_API_KEY`        | Require `X-API-Key` header on POST/DELETE        | (disabled)        |
-| `NEXT_PUBLIC_API_KEY`  | API key sent from browser (build-time for Docker)| (disabled)        |
-| `RATE_LIMIT_ENABLED`   | Enable rate limiting                             | `true`            |
+| Variable               | Description                                       | Default           |
+| ---------------------- | ------------------------------------------------- | ----------------- |
+| `POSTGRES_USER`        | PostgreSQL user                                   | `shortener`       |
+| `POSTGRES_PASSWORD`    | PostgreSQL password                               | —                 |
+| `POSTGRES_DB`          | Database name                                     | `shortener`       |
+| `DATABASE_URL`         | SQLAlchemy connection string                      | —                 |
+| `WEB_PORT`             | Host port for the web service                     | `3000`            |
+| `FASTAPI_INTERNAL_URL` | Internal API URL for Next.js rewrites             | `http://api:8000` |
+| `ADMIN_API_KEY`        | Require `X-API-Key` header on POST/DELETE         | (disabled)        |
+| `NEXT_PUBLIC_API_KEY`  | API key sent from browser (build-time for Docker) | (disabled)        |
+| `RATE_LIMIT_ENABLED`   | Enable rate limiting                              | `true`            |
 
 See [`.env.example`](.env.example) for a full template.
 

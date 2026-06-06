@@ -26,13 +26,19 @@ export function StatCard({
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, delay }}
+      transition={{ duration: 0.35, delay }}
+      whileHover={{ y: -1 }}
     >
-      <Card className={cn('', className)}>
+      <Card
+        className={cn(
+          'relative overflow-hidden border-l-[3px] border-l-accent transition-shadow hover:shadow-warm-md',
+          className
+        )}
+      >
         <div className="flex items-start justify-between">
           <div>
             <p className="text-sm text-muted">{title}</p>
-            <p className="mt-1 text-3xl font-bold text-card-foreground">
+            <p className="mt-1 text-3xl font-bold tracking-tight text-card-foreground">
               {value}
             </p>
             {subtitle && (
@@ -41,7 +47,7 @@ export function StatCard({
               </p>
             )}
           </div>
-          <div className="rounded-lg bg-background border border-border p-2.5">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-accent/10">
             <Icon className="h-5 w-5 text-accent" />
           </div>
         </div>

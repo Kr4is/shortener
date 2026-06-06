@@ -85,9 +85,17 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
 
   if (links.length === 0) {
     return (
-      <Card className="text-center py-12">
-        <Link2 className="h-12 w-12 text-muted mx-auto mb-4" />
-        <CardTitle>No links yet</CardTitle>
+      <Card className="text-center py-14">
+        <div className="relative mx-auto mb-6 h-20 w-20">
+          <div className="absolute inset-0 rounded-full border border-accent/20" />
+          <div className="absolute inset-3 rounded-full border border-accent/30" />
+          <div className="absolute inset-6 rounded-full bg-accent/10 flex items-center justify-center">
+            <Link2 className="h-6 w-6 text-accent" />
+          </div>
+        </div>
+        <CardTitle className="normal-case text-base font-semibold text-foreground">
+          No links yet
+        </CardTitle>
         <p className="text-muted mt-2 text-sm">
           Create your first shortened URL on the home page.
         </p>
@@ -102,7 +110,9 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
     <>
       <Card>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <CardTitle>All links</CardTitle>
+          <CardTitle className="normal-case text-base font-semibold text-foreground">
+            All links
+          </CardTitle>
           <div className="relative w-full sm:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
             <Input
@@ -139,7 +149,7 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
                   {filtered.map((link) => (
                     <tr
                       key={link.secret_key}
-                      className="border-b border-border/50 hover:bg-background transition-colors"
+                      className="border-b border-border/50 hover:bg-accent/5 transition-colors"
                     >
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-2">
@@ -161,11 +171,11 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
                       </td>
                       <td className="py-3 pr-4">
                         <div className="flex items-center gap-1">
-                          <code className="text-accent text-xs">
+                          <code className="font-mono text-accent text-xs">
                             /s/{link.public_slug}
                           </code>
                           {link.is_expired && (
-                            <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+                            <Badge className="bg-destructive/10 text-destructive border-destructive/25">
                               Expired
                             </Badge>
                           )}
@@ -209,18 +219,18 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
               {filtered.map((link) => (
                 <div
                   key={link.secret_key}
-                  className="rounded-lg border border-border bg-background p-4 space-y-2"
+                  className="rounded-xl border border-border/80 bg-surface-elevated/50 p-4 space-y-2"
                 >
                   <p className="text-foreground text-sm break-all">
                     {truncateUrl(link.original_url, 60)}
                   </p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <code className="text-accent text-xs">
+                      <code className="font-mono text-accent text-xs">
                         /s/{link.public_slug}
                       </code>
                       {link.is_expired && (
-                        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+                        <Badge className="bg-destructive/10 text-destructive border-destructive/25">
                           Expired
                         </Badge>
                       )}

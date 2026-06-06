@@ -232,9 +232,7 @@ def get_top_links(
     if end:
         query = query.filter(ClickEvent.clicked_at < end)
 
-    rows = (
-        query.order_by(func.count(ClickEvent.id).desc()).limit(limit).all()
-    )
+    rows = query.order_by(func.count(ClickEvent.id).desc()).limit(limit).all()
     return [(short, int(clicks)) for short, clicks in rows if clicks > 0]
 
 

@@ -139,7 +139,11 @@ def test_expired_link_returns_410(client, db_session):
     from api.models import Short
 
     slug = create_url(db_session, "https://example.com/expired")
-    short = db_session.query(Short).filter(Short.original_url == "https://example.com/expired").one()
+    short = (
+        db_session.query(Short)
+        .filter(Short.original_url == "https://example.com/expired")
+        .one()
+    )
     short.expires_at = datetime.now(UTC) - timedelta(days=1)
     db_session.commit()
 

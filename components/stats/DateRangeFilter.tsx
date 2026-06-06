@@ -22,15 +22,27 @@ export default function DateRangeFilter({
 }: DateRangeFilterProps) {
   return (
     <div className="flex flex-col sm:flex-row sm:items-end gap-3">
-      <div>
-        <label className="text-xs text-muted mb-1 block">From</label>
-        <Input type="date" value={from} onChange={(e) => onFromChange(e.target.value)} />
+      <div className="flex-1 sm:max-w-[180px]">
+        <label className="text-xs font-medium text-muted mb-1.5 block">
+          From
+        </label>
+        <Input
+          type="date"
+          value={from}
+          onChange={(e) => onFromChange(e.target.value)}
+        />
       </div>
-      <div>
-        <label className="text-xs text-muted mb-1 block">To</label>
-        <Input type="date" value={to} onChange={(e) => onToChange(e.target.value)} />
+      <div className="flex-1 sm:max-w-[180px]">
+        <label className="text-xs font-medium text-muted mb-1.5 block">
+          To
+        </label>
+        <Input
+          type="date"
+          value={to}
+          onChange={(e) => onToChange(e.target.value)}
+        />
       </div>
-      <Button variant="secondary" size="sm" onClick={onApply}>
+      <Button variant="primary" size="sm" onClick={onApply}>
         Apply
       </Button>
       {(from || to) && (

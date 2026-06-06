@@ -28,9 +28,7 @@ from .models import (
 from .preview import fetch_url_preview
 from .slug import public_slug
 
-RATE_LIMIT_ENABLED = (
-    os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
-)
+RATE_LIMIT_ENABLED = os.environ.get("RATE_LIMIT_ENABLED", "true").lower() == "true"
 
 limiter = Limiter(key_func=get_remote_address, enabled=RATE_LIMIT_ENABLED)
 
@@ -240,9 +238,7 @@ def get_stats(
         )
 
     if parsed_from and parsed_to:
-        daily = crud.get_daily_clicks(
-            db=db, date_from=parsed_from, date_to=parsed_to
-        )
+        daily = crud.get_daily_clicks(db=db, date_from=parsed_from, date_to=parsed_to)
     else:
         daily = crud.get_daily_clicks(db=db, days=30)
 

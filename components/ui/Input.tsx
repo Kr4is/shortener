@@ -9,8 +9,8 @@ const Input = forwardRef<
     <input
       ref={ref}
       className={cn(
-        'w-full rounded-lg border border-border bg-background px-4 py-2.5 text-foreground placeholder:text-muted',
-        'focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent',
+        'w-full rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-foreground placeholder:text-muted',
+        'focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/40',
         'disabled:opacity-50 transition-colors',
         className
       )}
