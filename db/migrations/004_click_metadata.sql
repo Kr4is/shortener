@@ -1,0 +1,2 @@
+ALTER TABLE click_events ADD COLUMN IF NOT EXISTS referrer TEXT;
+ALTER TABLE click_events ADD COLUMN IF NOT EXISTS user_agent TEXT;

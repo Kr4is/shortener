@@ -5,19 +5,18 @@ import { Card, CardTitle } from '@/components/ui/Card';
 import { motion } from 'framer-motion';
 import { Check, Copy, ExternalLink, QrCode } from 'lucide-react';
 import { useState } from 'react';
+import { toast } from 'sonner';
 import QrCodeModal from './QrCodeModal';
 
 export default function ResultCard({ url }: { url: string }) {
-  const [copied, setCopied] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      toast.success('Copied to clipboard');
     } catch {
-      /* clipboard unavailable */
+      toast.error('Could not copy to clipboard');
     }
   };
 
@@ -39,17 +38,8 @@ export default function ResultCard({ url }: { url: string }) {
           </p>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" size="sm" onClick={handleCopy}>
-              {copied ? (
-                <>
-                  <Check className="h-4 w-4" />
-                  Copied
-                </>
-              ) : (
-                <>
-                  <Copy className="h-4 w-4" />
-                  Copy
-                </>
-              )}
+              <Copy className="h-4 w-4" />
+              Copy
             </Button>
             <Button variant="outline" size="sm" onClick={() => setQrOpen(true)}>
               <QrCode className="h-4 w-4" />

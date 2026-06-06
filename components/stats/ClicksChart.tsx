@@ -13,7 +13,13 @@ import {
   YAxis,
 } from 'recharts';
 
-export default function ClicksChart({ data }: { data: DailyClicks[] }) {
+export default function ClicksChart({
+  data,
+  rangeLabel = 'last 30 days',
+}: {
+  data: DailyClicks[];
+  rangeLabel?: string;
+}) {
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme === 'dark';
   const tickColor = isDark ? '#94a3b8' : '#64748b';
@@ -29,7 +35,7 @@ export default function ClicksChart({ data }: { data: DailyClicks[] }) {
 
   return (
     <Card>
-      <CardTitle className="mb-4">Clicks per day (last 30 days)</CardTitle>
+      <CardTitle className="mb-4">Clicks per day ({rangeLabel})</CardTitle>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>

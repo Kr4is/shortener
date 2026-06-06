@@ -3,24 +3,56 @@
 import Button from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import Input from '@/components/ui/Input';
-import { createShortUrl } from '@/lib/api';
+import { createShortUrl, fetchUrlPreview } from '@/lib/api';
 import { motion } from 'framer-motion';
 import { AlertCircle, Link2, Loader2, Tag } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import ResultCard from './ResultCard';
 
 const URL_PATTERN = /^https?:\/\/.+/i;
 const ALIAS_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9-]{2,31}$/;
 
+const EXPIRY_OPTIONS = [
+  { label: 'Never', value: 0 },
+  { label: '7 days', value: 7 },
+  { label: '30 days', value: 30 },
+  { label: '90 days', value: 90 },
+];
+
 export default function ShortenForm() {
   const [url, setUrl] = useState('');
   const [alias, setAlias] = useState('');
+  const [expiresInDays, setExpiresInDays] = useState(0);
   const [shortenedUrl, setShortenedUrl] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [previewTitle, setPreviewTitle] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const isUrlValid = URL_PATTERN.test(url.trim());
   const isAliasValid = !alias.trim() || ALIAS_PATTERN.test(alias.trim());
+
+  useEffect(() => {
+    if (!isUrlValid) {
+      setPreviewTitle(null);
+      return;
+    }
+
+    const timer = setTimeout(async () => {
+      setPreviewLoading(true);
+      try {
+        const preview = await fetchUrlPreview(url.trim());
+        setPreviewTitle(preview.title);
+      } catch {
+        setPreviewTitle(null);
+      } finally {
+        setPreviewLoading(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [url, isUrlValid]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,10 +63,18 @@ export default function ShortenForm() {
     setShortenedUrl('');
 
     try {
-      const slug = await createShortUrl(url.trim(), alias.trim() || undefined);
-      setShortenedUrl(`${window.location.origin}/s/${slug}`);
+      const slug = await createShortUrl(
+        url.trim(),
+        alias.trim() || undefined,
+        expiresInDays || undefined
+      );
+      const shortUrl = `${window.location.origin}/s/${slug}`;
+      setShortenedUrl(shortUrl);
+      toast.success('Link shortened successfully');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      const message = err instanceof Error ? err.message : 'Something went wrong';
+      setError(message);
+      toast.error(message);
     } finally {
       setIsLoading(false);
     }
@@ -64,6 +104,14 @@ export default function ShortenForm() {
                   className="pl-10"
                 />
               </div>
+              {previewLoading && (
+                <p className="mt-1 text-xs text-muted">Loading preview...</p>
+              )}
+              {previewTitle && !previewLoading && (
+                <p className="mt-1 text-xs text-muted truncate" title={previewTitle}>
+                  Preview: {previewTitle}
+                </p>
+              )}
             </div>
 
             <div>
@@ -84,6 +132,24 @@ export default function ShortenForm() {
               <p className="mt-1 text-xs text-muted">
                 Your link will be /s/{alias.trim() || 'auto-generated-key'}
               </p>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-muted mb-1.5 block">
+                Expires in
+              </label>
+              <select
+                value={expiresInDays}
+                onChange={(e) => setExpiresInDays(Number(e.target.value))}
+                disabled={isLoading}
+                className="w-full rounded-lg border border-border bg-card text-foreground px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent/30"
+              >
+                {EXPIRY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {url && !isUrlValid && (

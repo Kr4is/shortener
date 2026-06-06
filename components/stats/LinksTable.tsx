@@ -18,6 +18,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useMemo, useState } from 'react';
+import { toast } from 'sonner';
 
 function CopyButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -26,9 +27,10 @@ function CopyButton({ text }: { text: string }) {
     try {
       await navigator.clipboard.writeText(text);
       setCopied(true);
+      toast.success('Copied to clipboard');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      /* clipboard unavailable */
+      toast.error('Could not copy to clipboard');
     }
   };
 
@@ -72,9 +74,10 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
     try {
       await deleteUrl(deleteTarget.public_slug);
       setDeleteTarget(null);
+      toast.success('Link deleted');
       onDelete?.();
-    } catch {
-      /* error handled by parent refresh or user retry */
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to delete link');
     } finally {
       setDeleting(false);
     }
@@ -161,6 +164,11 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
                           <code className="text-accent text-xs">
                             /s/{link.public_slug}
                           </code>
+                          {link.is_expired && (
+                            <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+                              Expired
+                            </Badge>
+                          )}
                           <CopyButton text={shortUrl(link)} />
                         </div>
                       </td>
@@ -207,9 +215,16 @@ export default function LinksTable({ links, onDelete }: LinksTableProps) {
                     {truncateUrl(link.original_url, 60)}
                   </p>
                   <div className="flex items-center justify-between">
-                    <code className="text-accent text-xs">
-                      /s/{link.public_slug}
-                    </code>
+                    <div className="flex items-center gap-2">
+                      <code className="text-accent text-xs">
+                        /s/{link.public_slug}
+                      </code>
+                      {link.is_expired && (
+                        <Badge className="bg-destructive/10 text-destructive border-destructive/20">
+                          Expired
+                        </Badge>
+                      )}
+                    </div>
                     <div className="flex items-center gap-1">
                       <Badge>{link.click_count} clicks</Badge>
                       <CopyButton text={shortUrl(link)} />

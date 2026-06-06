@@ -36,3 +36,4 @@ next-env.d.ts
 venv
 .venv
 .env
+/backups/

@@ -1,6 +1,7 @@
 import AppShell from '@/components/layout/AppShell';
 import ThemeProvider from '@/components/layout/ThemeProvider';
 import { Outfit } from 'next/font/google';
+import { Toaster } from 'sonner';
 import './globals.css';
 
 const outfit = Outfit({
@@ -23,6 +24,7 @@ export default function RootLayout({
       <body className={`${outfit.variable} font-sans`}>
         <ThemeProvider>
           <AppShell>{children}</AppShell>
+          <Toaster richColors position="top-right" />
         </ThemeProvider>
       </body>
     </html>

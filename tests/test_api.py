@@ -1,13 +1,23 @@
+from datetime import UTC, datetime, timedelta
+
+
 def test_health_check(client):
     response = client.get("/api/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
 
 
-def _create(client, url: str, alias: str | None = None) -> str:
-    payload = {"url": url}
+def _create(
+    client,
+    url: str,
+    alias: str | None = None,
+    expires_in_days: int | None = None,
+) -> str:
+    payload: dict = {"url": url}
     if alias:
         payload["alias"] = alias
+    if expires_in_days:
+        payload["expires_in_days"] = expires_in_days
     return client.post("/api/url", json=payload).json()["public_slug"]
 
 
@@ -24,7 +34,11 @@ def test_redirect_records_click(client):
     slug = _create(client, "https://example.com/click-test")
 
     client.get(f"/s/{slug}", follow_redirects=False)
-    client.get(f"/s/{slug}", follow_redirects=False)
+    client.get(
+        f"/s/{slug}",
+        follow_redirects=False,
+        headers={"Referer": "https://google.com", "User-Agent": "TestAgent/1.0"},
+    )
 
     urls = client.get("/api/urls").json()
     match = next(u for u in urls if u["public_slug"] == slug)
@@ -39,7 +53,18 @@ def test_stats_endpoint(client):
     assert stats["summary"]["total_links"] >= 1
     assert stats["summary"]["total_clicks"] >= 1
     assert "daily_clicks" in stats
+    assert "top_referrers" in stats
     assert len(stats["daily_clicks"]) == 30
+
+
+def test_stats_with_date_range(client):
+    slug = _create(client, "https://example.com/range-test")
+    client.get(f"/s/{slug}", follow_redirects=False)
+
+    today = datetime.now(UTC).date().isoformat()
+    stats = client.get(f"/api/stats?from={today}&to={today}").json()
+    assert stats["summary"]["total_clicks"] >= 1
+    assert len(stats["daily_clicks"]) == 1
 
 
 def test_list_urls_endpoint(client):
@@ -53,6 +78,18 @@ def test_list_urls_endpoint(client):
     assert "click_count" in data[0]
     assert "public_slug" in data[0]
     assert "custom_slug" in data[0]
+    assert "expires_at" in data[0]
+    assert "is_expired" in data[0]
+
+
+def test_export_urls_csv(client):
+    _create(client, "https://example.com/export-test")
+    response = client.get("/api/urls/export")
+    assert response.status_code == 200
+    assert "text/csv" in response.headers["content-type"]
+    body = response.text
+    assert "public_slug" in body
+    assert "https://example.com/export-test" in body
 
 
 def test_create_with_custom_alias(client):
@@ -94,6 +131,34 @@ def test_delete_url(client):
 
     redirect = client.get(f"/s/{slug}", follow_redirects=False)
     assert redirect.status_code == 404
+    assert "text/html" in redirect.headers["content-type"]
+
+
+def test_expired_link_returns_410(client, db_session):
+    from api.crud import create_url
+    from api.models import Short
+
+    slug = create_url(db_session, "https://example.com/expired")
+    short = db_session.query(Short).filter(Short.original_url == "https://example.com/expired").one()
+    short.expires_at = datetime.now(UTC) - timedelta(days=1)
+    db_session.commit()
+
+    response = client.get(f"/s/{slug}", follow_redirects=False)
+    assert response.status_code == 410
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_create_with_expiration(client):
+    slug = _create(client, "https://example.com/expires", expires_in_days=7)
+    urls = client.get("/api/urls").json()
+    match = next(u for u in urls if u["public_slug"] == slug)
+    assert match["expires_at"] is not None
+    assert match["is_expired"] is False
+
+
+def test_preview_endpoint(client):
+    response = client.get("/api/preview", params={"url": "not-valid"})
+    assert response.status_code == 400
 
 
 def test_duplicate_url_returns_same_key(client):
@@ -112,3 +177,26 @@ def test_invalid_url_returns_400(client):
 def test_unknown_short_url_returns_404(client):
     response = client.get("/s/UNKNOWN_KEY")
     assert response.status_code == 404
+    assert "text/html" in response.headers["content-type"]
+
+
+def test_api_key_required_when_configured(client, monkeypatch):
+    monkeypatch.setenv("ADMIN_API_KEY", "secret-key")
+    from api import auth
+
+    auth.ADMIN_API_KEY = "secret-key"
+
+    response = client.post(
+        "/api/url",
+        json={"url": "https://example.com/protected"},
+    )
+    assert response.status_code == 401
+
+    response = client.post(
+        "/api/url",
+        json={"url": "https://example.com/protected"},
+        headers={"X-API-Key": "secret-key"},
+    )
+    assert response.status_code == 200
+
+    auth.ADMIN_API_KEY = None

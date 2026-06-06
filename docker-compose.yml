@@ -25,6 +25,8 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql+psycopg://${POSTGRES_USER:-shortener}:${POSTGRES_PASSWORD:-shortener}@postgres:5432/${POSTGRES_DB:-shortener}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      ADMIN_API_KEY: ${ADMIN_API_KEY:-}
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,6 +43,7 @@ services:
       dockerfile: Dockerfile.web
       args:
         FASTAPI_INTERNAL_URL: http://api:8000
+        NEXT_PUBLIC_API_KEY: ${NEXT_PUBLIC_API_KEY:-}
     restart: unless-stopped
     ports:
       - "${WEB_PORT:-3000}:3000"

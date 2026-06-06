@@ -1,13 +1,18 @@
 import os
+from pathlib import Path
 
 import pytest
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+os.environ.setdefault("RATE_LIMIT_ENABLED", "false")
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+psycopg://shortener:shortener@localhost:5432/shortener",
+    "postgresql+psycopg://shortener:change-me@localhost:5432/shortener",
 )
 
 from api.database import Base, get_db  # noqa: E402

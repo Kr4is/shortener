@@ -11,6 +11,7 @@ from .slug import public_slug
 class UrlCreate(BaseModel):
     url: str
     alias: str | None = None
+    expires_in_days: int | None = None
 
 
 class Short(Base):
@@ -29,6 +30,9 @@ class Short(Base):
     last_clicked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+    expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
 
 class ClickEvent(Base):
@@ -41,6 +45,8 @@ class ClickEvent(Base):
     clicked_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    referrer: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class ShortStats(BaseModel):
@@ -51,9 +57,13 @@ class ShortStats(BaseModel):
     click_count: int
     created_at: datetime
     last_clicked_at: datetime | None
+    expires_at: datetime | None
+    is_expired: bool
 
     @classmethod
-    def from_short(cls, short: Short) -> "ShortStats":
+    def from_short(cls, short: Short, *, now: datetime | None = None) -> "ShortStats":
+        from .crud import is_expired
+
         return cls(
             secret_key=short.secret_key,
             original_url=short.original_url,
@@ -62,6 +72,8 @@ class ShortStats(BaseModel):
             click_count=short.click_count,
             created_at=short.created_at,
             last_clicked_at=short.last_clicked_at,
+            expires_at=short.expires_at,
+            is_expired=is_expired(short, now=now),
         )
 
 
@@ -77,6 +89,11 @@ class DailyClicks(BaseModel):
     clicks: int
 
 
+class TopReferrer(BaseModel):
+    referrer: str
+    clicks: int
+
+
 class StatsSummary(BaseModel):
     total_links: int
     total_clicks: int
@@ -88,7 +105,13 @@ class StatsResponse(BaseModel):
     summary: StatsSummary
     daily_clicks: list[DailyClicks]
     top_links: list[TopLink]
+    top_referrers: list[TopReferrer]
 
 
 class UrlCreateResponse(BaseModel):
     public_slug: str
+
+
+class UrlPreviewResponse(BaseModel):
+    url: str
+    title: str | None
