@@ -4,7 +4,7 @@ Self-hosted URL shortener built with **Next.js**, **FastAPI**, and **PostgreSQL*
 
 ## Stack
 
-- **Frontend:** Next.js 13 + React + Tailwind CSS
+- **Frontend:** Next.js 13 + React + Tailwind CSS (light/dark theme) + Recharts
 - **API:** FastAPI + SQLAlchemy
 - **Database:** PostgreSQL 16 (Docker volume)
 - **CI:** GitHub Actions (lint, tests, Docker build)
@@ -20,7 +20,7 @@ cp .env.example .env   # set POSTGRES_PASSWORD
 docker compose up -d --build
 ```
 
-Open [http://localhost:3000](http://localhost:3000).
+Open [http://localhost:3000](http://localhost:3000) to shorten URLs, or [http://localhost:3000/stats](http://localhost:3000/stats) for analytics.
 
 Check services:
 
@@ -79,14 +79,37 @@ pre-commit run --all-files
 
 ## API endpoints
 
-| Method | Path          | Description                                       |
-| ------ | ------------- | ------------------------------------------------- |
-| `GET`  | `/api/health` | Health check (includes DB connectivity)           |
-| `POST` | `/api/url`    | Create a shortened URL (`{"url": "https://..."}`) |
-| `GET`  | `/s/{key}`    | Redirect to the original URL                      |
-| `GET`  | `/docs`       | FastAPI Swagger UI                                |
+| Method   | Path               | Description                                                    |
+| -------- | ------------------ | -------------------------------------------------------------- |
+| `GET`    | `/api/health`      | Health check (includes DB connectivity)                        |
+| `POST`   | `/api/url`         | Create a shortened URL (`{"url": "...", "alias": "optional"}`) |
+| `GET`    | `/api/urls`        | List all shortened URLs with click stats                       |
+| `DELETE` | `/api/urls/{slug}` | Delete a shortened URL                                         |
+| `GET`    | `/api/stats`       | Summary stats, daily clicks, top links                         |
+| `GET`    | `/s/{key}`         | Redirect to the original URL (tracks click)                    |
+| `GET`    | `/docs`            | FastAPI Swagger UI                                             |
 
-Short links use the format `https://your-domain/s/{key}`.
+Short links use the format `https://your-domain/s/{key}` or `https://your-domain/s/{custom-alias}` when a custom alias is set.
+
+### Features
+
+- **Theme toggle** — switch between light and dark mode (navbar, top-right)
+- **Custom aliases** — optional friendly slugs like `/s/my-link` when creating URLs
+- **QR codes** — generate QR for any short link from the result card or stats table
+- **Search** — filter links in the statistics table by URL or slug
+- **Delete links** — remove shortened URLs from the stats table
+
+### Database migrations (existing deployments)
+
+```bash
+# Click tracking (if upgrading from pre-stats version)
+docker compose exec -T postgres psql -U shortener shortener < db/migrations/001_add_click_tracking.sql
+
+# Custom aliases
+docker compose exec -T postgres psql -U shortener shortener < db/migrations/002_add_custom_slug.sql
+```
+
+Fresh installs use the updated [`db/init.sql`](db/init.sql) automatically.
 
 ## Environment variables
 
@@ -135,8 +158,10 @@ npm run format:check
 
 ```
 ├── api/              # FastAPI backend
-├── app/              # Next.js frontend
+├── app/              # Next.js frontend (/, /stats)
+├── components/       # UI components
 ├── db/init.sql       # PostgreSQL schema
+├── db/migrations/    # SQL migrations for upgrades
 ├── tests/            # API integration tests
 ├── pyproject.toml    # Python dependencies (uv)
 ├── uv.lock

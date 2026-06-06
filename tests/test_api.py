@@ -4,24 +4,102 @@ def test_health_check(client):
     assert response.json() == {"status": "ok"}
 
 
-def test_create_and_redirect_url(client):
-    create_response = client.post(
-        "/api/url",
-        json={"url": "https://example.com/page"},
-    )
-    assert create_response.status_code == 200
-    secret_key = create_response.json()
-    assert isinstance(secret_key, str)
+def _create(client, url: str, alias: str | None = None) -> str:
+    payload = {"url": url}
+    if alias:
+        payload["alias"] = alias
+    return client.post("/api/url", json=payload).json()["public_slug"]
 
-    redirect_response = client.get(f"/s/{secret_key}", follow_redirects=False)
+
+def test_create_and_redirect_url(client):
+    slug = _create(client, "https://example.com/page")
+    assert isinstance(slug, str)
+
+    redirect_response = client.get(f"/s/{slug}", follow_redirects=False)
     assert redirect_response.status_code == 307
     assert redirect_response.headers["location"] == "https://example.com/page"
 
 
+def test_redirect_records_click(client):
+    slug = _create(client, "https://example.com/click-test")
+
+    client.get(f"/s/{slug}", follow_redirects=False)
+    client.get(f"/s/{slug}", follow_redirects=False)
+
+    urls = client.get("/api/urls").json()
+    match = next(u for u in urls if u["public_slug"] == slug)
+    assert match["click_count"] == 2
+
+
+def test_stats_endpoint(client):
+    slug = _create(client, "https://example.com/stats-test")
+    client.get(f"/s/{slug}", follow_redirects=False)
+
+    stats = client.get("/api/stats").json()
+    assert stats["summary"]["total_links"] >= 1
+    assert stats["summary"]["total_clicks"] >= 1
+    assert "daily_clicks" in stats
+    assert len(stats["daily_clicks"]) == 30
+
+
+def test_list_urls_endpoint(client):
+    _create(client, "https://example.com/list-test")
+    response = client.get("/api/urls")
+    assert response.status_code == 200
+    data = response.json()
+    assert isinstance(data, list)
+    assert len(data) >= 1
+    assert "original_url" in data[0]
+    assert "click_count" in data[0]
+    assert "public_slug" in data[0]
+    assert "custom_slug" in data[0]
+
+
+def test_create_with_custom_alias(client):
+    slug = _create(client, "https://example.com/alias-test", alias="my-link")
+    assert slug == "my-link"
+
+    redirect = client.get("/s/my-link", follow_redirects=False)
+    assert redirect.status_code == 307
+    assert redirect.headers["location"] == "https://example.com/alias-test"
+
+
+def test_duplicate_alias_returns_409(client):
+    _create(client, "https://example.com/first", alias="taken-slug")
+    response = client.post(
+        "/api/url",
+        json={"url": "https://example.com/second", "alias": "taken-slug"},
+    )
+    assert response.status_code == 409
+
+
+def test_invalid_alias_returns_400(client):
+    response = client.post(
+        "/api/url",
+        json={"url": "https://example.com/bad", "alias": "api"},
+    )
+    assert response.status_code == 400
+
+    response = client.post(
+        "/api/url",
+        json={"url": "https://example.com/bad2", "alias": "ab"},
+    )
+    assert response.status_code == 400
+
+
+def test_delete_url(client):
+    slug = _create(client, "https://example.com/delete-me")
+    delete_response = client.delete(f"/api/urls/{slug}")
+    assert delete_response.status_code == 200
+
+    redirect = client.get(f"/s/{slug}", follow_redirects=False)
+    assert redirect.status_code == 404
+
+
 def test_duplicate_url_returns_same_key(client):
     url = "https://example.com/duplicate"
-    first = client.post("/api/url", json={"url": url}).json()
-    second = client.post("/api/url", json={"url": url}).json()
+    first = _create(client, url)
+    second = _create(client, url)
     assert first == second
 
 

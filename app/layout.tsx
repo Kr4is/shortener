@@ -1,11 +1,16 @@
+import AppShell from '@/components/layout/AppShell';
+import ThemeProvider from '@/components/layout/ThemeProvider';
+import { Outfit } from 'next/font/google';
 import './globals.css';
-import { Inter } from 'next/font/google';
 
-const inter = Inter({ subsets: ['latin'] });
+const outfit = Outfit({
+  subsets: ['latin'],
+  variable: '--font-outfit',
+});
 
 export const metadata = {
-  title: 'Shortener Tool',
-  description: 'Shortener website link tool application',
+  title: 'Shortener — URL Shortener',
+  description: 'Self-hosted URL shortener with analytics',
 };
 
 export default function RootLayout({
@@ -14,8 +19,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body className={inter.className}>{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className={`${outfit.variable} font-sans`}>
+        <ThemeProvider>
+          <AppShell>{children}</AppShell>
+        </ThemeProvider>
+      </body>
     </html>
   );
 }

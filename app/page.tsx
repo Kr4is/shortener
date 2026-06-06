@@ -1,108 +1,76 @@
 'use client';
 
-import { useState } from 'react';
+import ShortenForm from '@/components/shorten/ShortenForm';
+import { Card } from '@/components/ui/Card';
+import { motion } from 'framer-motion';
+import { Link2, MousePointerClick, Sparkles } from 'lucide-react';
+
+const steps = [
+  {
+    icon: Link2,
+    title: 'Paste your URL',
+    description: 'Enter any long http or https link you want to share.',
+  },
+  {
+    icon: Sparkles,
+    title: 'Get a short link',
+    description: 'Optionally set a custom alias or use an auto-generated key.',
+  },
+  {
+    icon: MousePointerClick,
+    title: 'Track clicks',
+    description: 'Monitor performance in the Statistics dashboard.',
+  },
+];
 
 export default function Home() {
-  const [web, setWeb] = useState('');
-  const [shortenedUrl, setShortenedUrl] = useState('');
-  const [showShortenedUrl, setShowShortenedUrl] = useState(false);
-  const [showInvalidUrl, setShowInvalidUrl] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setShowInvalidUrl(false);
-    setShowShortenedUrl(false);
-    setCopied(false);
-
-    try {
-      const res = await fetch('/api/url', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ url: web }),
-      });
-
-      if (res.ok) {
-        const shortKey = await res.json();
-        setShortenedUrl(`${window.location.origin}/s/${shortKey}`);
-        setShowShortenedUrl(true);
-      } else {
-        const errorData = await res.json().catch(() => null);
-        setErrorMessage(
-          errorData?.detail || 'Something went wrong. Please try again.'
-        );
-        setShowInvalidUrl(true);
-      }
-    } catch (error) {
-      console.error('Error:', error);
-      setErrorMessage('Network error. Please try again.');
-      setShowInvalidUrl(true);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(shortenedUrl);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (error) {
-      console.error('Copy failed:', error);
-    }
-  };
-
   return (
-    <main className="flex min-h-screen items-center justify-center p-4 md:p-8">
-      <div className="max-w-lg w-full mx-auto">
-        <h1 className="text-2xl font-semibold text-center mb-8">
-          Website URL Shortener
+    <div className="space-y-12">
+      <motion.div
+        initial={{ opacity: 0, y: 12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="text-center max-w-2xl mx-auto"
+      >
+        <div className="inline-flex rounded-xl bg-accent/10 border border-accent/20 p-3 mb-5">
+          <Link2 className="h-8 w-8 text-accent" />
+        </div>
+        <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-3">
+          Shorten your links
         </h1>
-        <form className="w-full" onSubmit={handleSubmit}>
-          <div className="flex flex-col md:flex-row gap-4">
-            <input
-              type="text"
-              name="url"
-              placeholder="Enter the URL"
-              value={web}
-              onChange={(e) => setWeb(e.target.value)}
-              disabled={isLoading}
-              className="w-full md:w-2/3 border p-2 rounded focus:outline-none focus:border-blue-500 text-black disabled:opacity-50"
-            />
-            <button
-              type="submit"
-              disabled={isLoading || !web.trim()}
-              className="w-full md:w-auto bg-blue-500 text-white px-12 py-2 rounded-md hover:bg-blue-600 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+        <p className="text-muted">
+          Create short URLs, share them anywhere, and track every click. Fully
+          self-hosted on your infrastructure.
+        </p>
+      </motion.div>
+
+      <ShortenForm />
+
+      <div className="max-w-4xl mx-auto">
+        <h2 className="text-center text-lg font-semibold text-foreground mb-6">
+          How it works
+        </h2>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {steps.map((step, i) => (
+            <motion.div
+              key={step.title}
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + i * 0.05 }}
             >
-              {isLoading ? 'Shortening...' : 'Shorten'}
-            </button>
-          </div>
-        </form>
-        {showShortenedUrl && (
-          <div className="bg-white border-t border-b border-blue-500 text-blue-700 px-4 py-3 my-5">
-            <p className="font-bold mb-2">Your shortened URL is:</p>
-            <p className="text-sm break-all mb-3">{shortenedUrl}</p>
-            <button
-              type="button"
-              onClick={handleCopy}
-              className="text-sm bg-blue-500 text-white px-4 py-1 rounded hover:bg-blue-600 transition duration-300"
-            >
-              {copied ? 'Copied!' : 'Copy to clipboard'}
-            </button>
-          </div>
-        )}
-        {showInvalidUrl && (
-          <div className="bg-white border-t border-b border-red-500 text-red-700 px-4 py-3 my-5">
-            <p className="font-bold mb-2">Error:</p>
-            <p className="text-sm break-all">{errorMessage}</p>
-          </div>
-        )}
+              <Card className="text-center h-full">
+                <div className="inline-flex rounded-lg bg-background border border-border p-2.5 mb-3">
+                  <step.icon className="h-5 w-5 text-accent" />
+                </div>
+                <h3 className="font-semibold text-card-foreground mb-1">
+                  {step.title}
+                </h3>
+                <p className="text-sm text-muted">{step.description}</p>
+              </Card>
+            </motion.div>
+          ))}
+        </div>
       </div>
-    </main>
+    </div>
   );
 }
