@@ -1,7 +1,9 @@
 import re
 
 SLUG_PATTERN = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9-]{2,31}$")
-RESERVED_SLUGS = frozenset({"api", "stats", "urls", "health", "docs", "python", "s"})
+RESERVED_SLUGS = frozenset(
+    {"api", "stats", "urls", "health", "docs", "python", "s", "export", "links"}
+)
 
 
 def validate_slug(slug: str) -> str | None:

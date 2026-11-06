@@ -1,77 +1,137 @@
 'use client';
 
-import { Card, CardTitle } from '@/components/ui/Card';
 import { DailyClicks } from '@/lib/api';
-import { useTheme } from 'next-themes';
+import { useThemeColors } from '@/lib/theme-colors';
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
 } from 'recharts';
 
+function label(iso: string, opts: Intl.DateTimeFormatOptions) {
+  // Dates come as YYYY-MM-DD; parse as local midnight so the day doesn't shift.
+  const [y, m, d] = iso.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, opts);
+}
+
 export default function ClicksChart({
   data,
-  rangeLabel = 'last 30 days',
+  title = 'Clicks per day',
+  height = 220,
 }: {
   data: DailyClicks[];
-  rangeLabel?: string;
+  title?: string;
+  height?: number;
 }) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === 'dark';
-  const tickColor = isDark ? '#a8a29e' : '#78716c';
-  const gridColor = isDark
-    ? 'rgba(168,162,158,0.12)'
-    : 'rgba(120,113,108,0.15)';
-  const strokeColor = isDark ? '#fbbf24' : '#d97706';
+  const c = useThemeColors();
+  const total = data.reduce((sum, d) => sum + d.clicks, 0);
+  const peak = data.reduce(
+    (best, d) => (d.clicks > best.clicks ? d : best),
+    data[0] ?? { date: '', clicks: 0 }
+  );
 
-  const chartData = data.map((d) => ({
-    date: new Date(d.date).toLocaleDateString(undefined, {
-      month: 'short',
-      day: 'numeric',
-    }),
+  const rows = data.map((d) => ({
+    day: label(d.date, { month: 'short', day: 'numeric' }),
+    full: label(d.date, { weekday: 'short', month: 'short', day: 'numeric' }),
     clicks: d.clicks,
   }));
 
   return (
-    <Card>
-      <CardTitle className="mb-1 normal-case">Clicks per day</CardTitle>
-      <p className="text-xs text-muted mb-4">{rangeLabel}</p>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-            <XAxis
-              dataKey="date"
-              tick={{ fill: tickColor, fontSize: 11 }}
-              interval="preserveStartEnd"
-            />
-            <YAxis
-              tick={{ fill: tickColor, fontSize: 11 }}
-              allowDecimals={false}
-            />
-            <Tooltip
-              contentStyle={{
-                background: isDark ? '#1c1917' : '#ffffff',
-                border: `1px solid ${isDark ? '#44403c' : '#e7e5e4'}`,
-                borderRadius: '12px',
-                color: isDark ? '#fafaf9' : '#1c1917',
-              }}
-            />
-            <Line
-              type="monotone"
-              dataKey="clicks"
-              stroke={strokeColor}
-              strokeWidth={2}
-              dot={{ fill: strokeColor, r: 3 }}
-              activeDot={{ r: 5 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
+    <section aria-labelledby="chart-title">
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <h2 id="chart-title" className="text-[15px] font-semibold">
+          {title}
+        </h2>
+        <p className="text-[13px] text-muted">
+          {total} total
+          {peak.clicks > 0 && (
+            <>
+              {' · '}peak {peak.clicks} on{' '}
+              {label(peak.date, { month: 'short', day: 'numeric' })}
+            </>
+          )}
+        </p>
       </div>
-    </Card>
+      {total === 0 ? (
+        <div
+          className="flex items-center justify-center rounded-md border border-dashed border-rule-strong text-sm text-muted"
+          style={{ height }}
+        >
+          No clicks in this period.
+        </div>
+      ) : (
+        <div
+          style={{ height }}
+          role="img"
+          aria-label={`${title}: ${total} clicks, peak ${peak.clicks}`}
+        >
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={rows}
+              margin={{ top: 4, right: 0, bottom: 0, left: -12 }}
+              barCategoryGap="18%"
+            >
+              <defs>
+                <linearGradient id="clicks-fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={c.accent} stopOpacity={1} />
+                  <stop offset="100%" stopColor={c.accent} stopOpacity={0.55} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid vertical={false} stroke={c.rule} />
+              <XAxis
+                dataKey="day"
+                tick={{
+                  fill: c.muted,
+                  fontSize: 11,
+                  fontFamily: 'var(--font-text)',
+                }}
+                tickLine={false}
+                axisLine={{ stroke: c['rule-strong'] }}
+                dy={4}
+                interval="preserveStartEnd"
+                minTickGap={24}
+              />
+              <YAxis
+                tick={{
+                  fill: c.muted,
+                  fontSize: 11,
+                  fontFamily: 'var(--font-text)',
+                }}
+                tickLine={false}
+                axisLine={false}
+                allowDecimals={false}
+                width={44}
+              />
+              <Tooltip
+                cursor={{ fill: c.foreground, fillOpacity: 0.06 }}
+                isAnimationActive={false}
+                content={({ active, payload }) => {
+                  if (!active || !payload?.length) return null;
+                  const row = payload[0].payload as (typeof rows)[number];
+                  return (
+                    <div className="rounded-md border border-rule bg-panel px-3 py-2 text-[13px] shadow-lift">
+                      <div className="text-muted">{row.full}</div>
+                      <div className="font-medium">
+                        {row.clicks} {row.clicks === 1 ? 'click' : 'clicks'}
+                      </div>
+                    </div>
+                  );
+                }}
+              />
+              <Bar
+                dataKey="clicks"
+                fill="url(#clicks-fill)"
+                radius={[3, 3, 0, 0]}
+                isAnimationActive={false}
+              />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </section>
   );
 }

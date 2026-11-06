@@ -109,6 +109,28 @@ def delete_short(db: Session, slug: str) -> bool:
     return True
 
 
+def update_expiry(
+    db: Session,
+    slug: str,
+    *,
+    expires_in_days: int | None,
+    expire_now: bool = False,
+) -> Short | None:
+    short = get_short_by_key(db, slug)
+    if not short:
+        return None
+    now = datetime.now(UTC)
+    if expire_now:
+        short.expires_at = now
+    elif expires_in_days is None:
+        short.expires_at = None
+    else:
+        short.expires_at = now + timedelta(days=expires_in_days)
+    db.commit()
+    db.refresh(short)
+    return short
+
+
 def record_click(
     db: Session,
     url_key: str,
@@ -171,6 +193,7 @@ def get_daily_clicks(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    secret_key: str | None = None,
 ) -> list[tuple[date, int]]:
     if date_from and date_to:
         start = datetime.combine(date_from, datetime.min.time(), tzinfo=UTC)
@@ -186,13 +209,14 @@ def get_daily_clicks(
         end = today + timedelta(days=1)
         day_count = days
 
+    query = db.query(
+        func.date(ClickEvent.clicked_at).label("day"),
+        func.count(ClickEvent.id).label("clicks"),
+    ).filter(ClickEvent.clicked_at >= start, ClickEvent.clicked_at < end)
+    if secret_key:
+        query = query.filter(ClickEvent.secret_key == secret_key)
     rows = (
-        db.query(
-            func.date(ClickEvent.clicked_at).label("day"),
-            func.count(ClickEvent.id).label("clicks"),
-        )
-        .filter(ClickEvent.clicked_at >= start, ClickEvent.clicked_at < end)
-        .group_by(func.date(ClickEvent.clicked_at))
+        query.group_by(func.date(ClickEvent.clicked_at))
         .order_by(func.date(ClickEvent.clicked_at))
         .all()
     )
@@ -242,12 +266,15 @@ def get_top_referrers(
     *,
     date_from: date | None = None,
     date_to: date | None = None,
+    secret_key: str | None = None,
 ) -> list[tuple[str, int]]:
     start, end = _date_bounds(date_from, date_to)
     query = db.query(
         ClickEvent.referrer,
         func.count(ClickEvent.id).label("clicks"),
     ).filter(ClickEvent.referrer.isnot(None), ClickEvent.referrer != "")
+    if secret_key:
+        query = query.filter(ClickEvent.secret_key == secret_key)
 
     if start:
         query = query.filter(ClickEvent.clicked_at >= start)
@@ -287,7 +314,7 @@ def get_stats_summary(
         if end:
             click_query = click_query.filter(ClickEvent.clicked_at < end)
         total_clicks = click_query.scalar() or 0
-        clicks_today = get_clicks_today(db) if not date_from and not date_to else 0
+        clicks_today = get_clicks_today(db)
         top = get_top_links(db, limit=1, date_from=date_from, date_to=date_to)
         top_link = top[0][0] if top else None
         top_clicks = top[0][1] if top else 0

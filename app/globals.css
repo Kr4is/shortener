@@ -2,61 +2,160 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Colour tokens are RGB triplets so Tailwind can apply alpha.
+ * Restrained palette: cool neutrals plus one blue that marks the primary
+ * action, focus and data. State colours carry meaning only.
+ */
 :root {
-  --background: 250 250 249;
-  --foreground: 28 25 23;
-  --card: 255 255 255;
-  --card-foreground: 28 25 23;
-  --border: 231 229 228;
-  --muted: 120 113 108;
-  --accent: 217 119 6;
+  --background: 243 245 248;
+  --foreground: 17 24 39;
+  --panel: 255 255 255;
+  --rule: 228 231 236;
+  --rule-strong: 206 211 219;
+  --muted: 95 103 117;
+  --accent: 37 82 199;
   --accent-foreground: 255 255 255;
-  --accent-muted: 254 243 199;
-  --surface-elevated: 255 255 255;
-  --ring: 217 119 6;
-  --destructive: 185 28 28;
-  --success: 5 150 105;
-  --glow: 251 191 36;
+  --ok: 21 128 61;
+  --warn: 161 98 7;
+  --danger: 185 28 28;
+  color-scheme: light;
 }
 
 .dark {
-  --background: 12 10 9;
-  --foreground: 250 250 249;
-  --card: 28 25 23;
-  --card-foreground: 250 250 249;
-  --border: 41 37 36;
-  --muted: 168 162 158;
-  --accent: 251 191 36;
-  --accent-foreground: 28 25 23;
-  --accent-muted: 69 45 12;
-  --surface-elevated: 41 37 36;
-  --ring: 251 191 36;
-  --destructive: 248 113 113;
-  --success: 52 211 153;
-  --glow: 217 119 6;
+  --background: 12 14 18;
+  --foreground: 228 231 236;
+  --panel: 21 24 30;
+  --rule: 37 41 50;
+  --rule-strong: 56 62 74;
+  --muted: 150 157 170;
+  --accent: 122 160 255;
+  --accent-foreground: 10 16 32;
+  --ok: 74 200 125;
+  --warn: 234 179 72;
+  --danger: 248 113 113;
+  color-scheme: dark;
 }
 
-body {
-  @apply bg-background text-foreground min-h-screen antialiased;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
+  }
+
+  body {
+    @apply min-h-screen bg-background font-sans text-foreground antialiased;
+    font-size: 15px;
+    line-height: 1.55;
+    font-variant-numeric: tabular-nums;
+  }
+
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+
+  p {
+    text-wrap: pretty;
+  }
+
+  ::selection {
+    background: rgb(var(--accent) / 0.22);
+  }
+
+  input,
+  textarea {
+    caret-color: rgb(var(--accent));
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+  }
+
+  a {
+    text-underline-offset: 3px;
+    text-decoration-thickness: 1px;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--rule-strong)) transparent;
+  }
+
+  dialog::backdrop {
+    background: rgb(0 0 0 / 0.55);
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator {
+    opacity: 0.6;
+    cursor: pointer;
+  }
+
+  .dark input[type='date']::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+  }
 }
 
-.bg-app {
-  background-color: rgb(var(--background));
-  background-image: radial-gradient(
-    ellipse 80% 50% at 50% -20%,
-    rgb(var(--glow) / 0.12),
-    transparent
-  );
+@layer components {
+  /* Monogram for a destination domain; hue comes from --h (set inline). */
+  .domain-mark {
+    background: hsl(var(--h) 75% 94%);
+    color: hsl(var(--h) 60% 32%);
+  }
+  .dark .domain-mark {
+    background: hsl(var(--h) 35% 19%);
+    color: hsl(var(--h) 80% 78%);
+  }
+
+  .full-bleed {
+    margin-inline: calc(50% - 50vw);
+    padding-inline: calc(50vw - 50%);
+  }
+
+  .hero-band {
+    background:
+      linear-gradient(
+        180deg,
+        rgb(var(--accent) / 0.06),
+        rgb(var(--accent) / 0) 70%
+      ),
+      rgb(var(--panel));
+  }
+
+  .panel {
+    @apply rounded-lg border border-rule bg-panel shadow-card;
+  }
+
+  .kbd {
+    @apply inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded border border-rule-strong bg-panel px-1 font-mono text-[11px] leading-none text-muted;
+  }
 }
 
-.dark .bg-app {
-  background-image: radial-gradient(
-    ellipse 80% 50% at 50% -20%,
-    rgb(var(--glow) / 0.08),
-    transparent
-  );
+/* The one authored motion: a new row arrives tinted and keeps the tint
+   until the link is copied, then settles. */
+@keyframes arrive {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
-.font-mono-url {
-  font-family: var(--font-mono), ui-monospace, monospace;
+.row-landed {
+  background: rgb(var(--accent) / 0.07);
+}
+
+.land-in {
+  animation: arrive 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .land-in {
+    animation: none;
+  }
 }

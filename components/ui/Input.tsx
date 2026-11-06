@@ -1,23 +1,15 @@
 import { cn } from '@/lib/utils';
 import { InputHTMLAttributes, forwardRef } from 'react';
 
+export const fieldClass =
+  'h-10 w-full rounded border border-rule-strong bg-panel px-3 text-sm text-foreground placeholder:text-muted/80 transition-colors hover:border-foreground/30 focus:border-accent focus:outline-none focus-visible:outline-none focus:ring-[3px] focus:ring-accent/20 disabled:opacity-50 aria-[invalid=true]:border-danger';
+
 const Input = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement>
->(({ className, ...props }, ref) => {
-  return (
-    <input
-      ref={ref}
-      className={cn(
-        'w-full rounded-xl border border-border bg-surface-elevated px-4 py-2.5 text-foreground placeholder:text-muted',
-        'focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/40',
-        'disabled:opacity-50 transition-colors',
-        className
-      )}
-      {...props}
-    />
-  );
-});
+>(({ className, ...props }, ref) => (
+  <input ref={ref} className={cn(fieldClass, className)} {...props} />
+));
 
 Input.displayName = 'Input';
 

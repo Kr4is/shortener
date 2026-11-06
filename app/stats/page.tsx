@@ -1,160 +1,166 @@
 'use client';
 
-import DateRangeFilter from '@/components/stats/DateRangeFilter';
 import ClicksChart from '@/components/stats/ClicksChart';
 import LinksTable from '@/components/stats/LinksTable';
-import StatsOverview from '@/components/stats/StatsOverview';
-import TopLinksChart from '@/components/stats/TopLinksChart';
-import TopReferrers from '@/components/stats/TopReferrers';
+import RangeControl, {
+  Range,
+  rangeBounds,
+  rangeLabel,
+} from '@/components/stats/RangeControl';
+import RankList from '@/components/stats/RankList';
+import SummaryLine from '@/components/stats/SummaryLine';
 import Button from '@/components/ui/Button';
 import {
   exportUrlsCsv,
   fetchStats,
   fetchUrls,
-  StatsResponse,
   ShortStats,
+  StatsResponse,
 } from '@/lib/api';
-import { motion } from 'framer-motion';
-import { BarChart3, Download, Loader2, RefreshCw } from 'lucide-react';
+import { displayUrl, relativeTime } from '@/lib/utils';
+import { Download, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { toast } from 'sonner';
+
+const REFRESH_MS = 30_000;
 
 export default function StatsPage() {
+  const [range, setRange] = useState<Range>({ kind: 'preset', days: 30 });
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [links, setLinks] = useState<ShortStats[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [dateFrom, setDateFrom] = useState('');
-  const [dateTo, setDateTo] = useState('');
-  const [appliedFrom, setAppliedFrom] = useState('');
-  const [appliedTo, setAppliedTo] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [updatedAt, setUpdatedAt] = useState<number | null>(null);
+  const [, tick] = useState(0);
 
-  const loadData = useCallback(async () => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    const { from, to } = rangeBounds(range);
     try {
-      const [statsData, urlsData] = await Promise.all([
-        fetchStats(appliedFrom || undefined, appliedTo || undefined),
-        fetchUrls(),
-      ]);
-      setStats(statsData);
-      setLinks(urlsData);
+      const [s, l] = await Promise.all([fetchStats(from, to), fetchUrls()]);
+      setStats(s);
+      setLinks(l);
       setError('');
-    } catch {
-      setError('Failed to load statistics. Is the API running?');
+      setUpdatedAt(Date.now());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load stats');
     } finally {
       setLoading(false);
     }
-  }, [appliedFrom, appliedTo]);
+  }, [range]);
 
   useEffect(() => {
-    loadData();
-    const interval = setInterval(loadData, 30000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+    load();
+    const id = setInterval(() => {
+      if (document.visibilityState === 'visible') load();
+    }, REFRESH_MS);
+    return () => clearInterval(id);
+  }, [load]);
 
-  const handleApplyRange = () => {
-    setAppliedFrom(dateFrom);
-    setAppliedTo(dateTo);
-    setLoading(true);
-  };
+  // Keep the "updated … ago" line honest.
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 10_000);
+    return () => clearInterval(id);
+  }, []);
 
-  const handleClearRange = () => {
-    setDateFrom('');
-    setDateTo('');
-    setAppliedFrom('');
-    setAppliedTo('');
-    setLoading(true);
-  };
-
-  const handleExport = () => {
-    exportUrlsCsv();
-    toast.success('CSV export started');
-  };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24">
-        <Loader2 className="h-8 w-8 animate-spin text-accent" />
-      </div>
-    );
-  }
-
-  if (error || !stats) {
-    return (
-      <div className="text-center py-24 text-destructive">
-        <p>{error || 'No data available'}</p>
-        <button
-          onClick={loadData}
-          className="mt-4 text-sm text-muted hover:text-foreground underline"
-        >
-          Retry
-        </button>
-      </div>
-    );
-  }
-
-  const rangeLabel =
-    appliedFrom && appliedTo
-      ? `${appliedFrom} to ${appliedTo}`
-      : 'last 30 days';
+  const period = rangeLabel(range);
 
   return (
-    <div className="space-y-8">
-      <motion.div
-        initial={{ opacity: 0, y: 12 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col gap-4"
-      >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent/15">
-              <BarChart3 className="h-6 w-6 text-accent" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                Statistics
-              </h1>
-              <p className="text-sm text-muted">
-                Auto-refreshes every 30 seconds · {rangeLabel}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handleExport}>
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-            <button
-              onClick={loadData}
-              className="flex items-center gap-2 text-sm text-muted hover:text-accent transition-colors"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Refresh
-            </button>
-          </div>
+    <div className="space-y-6">
+      <div className="flex flex-col gap-5 pb-2 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight sm:text-[1.75rem]">
+            Stats
+          </h1>
+          <p className="mt-1 text-[13px] text-muted" aria-live="polite">
+            {loading && !stats
+              ? 'Loading…'
+              : error && stats
+                ? `Refresh failed: ${error}`
+                : updatedAt
+                  ? `Updated ${relativeTime(new Date(updatedAt).toISOString())} · refreshes every 30s`
+                  : ''}
+          </p>
         </div>
-
-        <div className="rounded-2xl border border-border/80 bg-surface-elevated/60 p-4 shadow-warm">
-          <DateRangeFilter
-            from={dateFrom}
-            to={dateTo}
-            onFromChange={setDateFrom}
-            onToChange={setDateTo}
-            onApply={handleApplyRange}
-            onClear={handleClearRange}
-          />
+        <div className="flex flex-wrap items-end gap-2">
+          <RangeControl value={range} onChange={setRange} />
+          <Button
+            onClick={load}
+            disabled={loading}
+            aria-label="Refresh now"
+            size="icon"
+            className="h-10 w-10"
+            variant="secondary"
+          >
+            <RefreshCw
+              className={loading ? 'h-4 w-4 animate-spin' : 'h-4 w-4'}
+              strokeWidth={1.75}
+            />
+          </Button>
+          <Button onClick={exportUrlsCsv}>
+            <Download className="h-4 w-4" strokeWidth={1.75} />
+            CSV
+          </Button>
         </div>
-      </motion.div>
-
-      <StatsOverview summary={stats.summary} />
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <ClicksChart data={stats.daily_clicks} rangeLabel={rangeLabel} />
-        <TopLinksChart links={stats.top_links} />
       </div>
 
-      <TopReferrers referrers={stats.top_referrers} />
-
-      <LinksTable links={links} onDelete={loadData} />
+      {!stats ? (
+        error ? (
+          <div
+            role="alert"
+            className="rounded-lg border border-danger/30 bg-danger/[0.06] p-5"
+          >
+            <p className="text-sm text-danger">{error}</p>
+            <p className="mt-1 text-[13px] text-muted">
+              Check that the API container is running and reachable from the web
+              container.
+            </p>
+            <Button className="mt-4" onClick={load}>
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <div aria-hidden className="space-y-6">
+            <div className="h-24 animate-pulse rounded-lg bg-foreground/[0.04]" />
+            <div className="h-56 animate-pulse rounded-lg bg-foreground/[0.04]" />
+          </div>
+        )
+      ) : (
+        <>
+          <SummaryLine summary={stats.summary} periodLabel={period} />
+          <div className="panel p-5">
+            <ClicksChart
+              data={stats.daily_clicks}
+              title={`Clicks per day · ${period}`}
+            />
+          </div>
+          <div className="grid gap-6 lg:grid-cols-2">
+            <RankList
+              title="Top links"
+              empty="No clicks in this period."
+              items={stats.top_links.map((l) => ({
+                key: l.secret_key,
+                label: `/s/${l.public_slug}`,
+                mono: true,
+                sublabel: displayUrl(l.original_url),
+                markUrl: l.original_url,
+                href: `/links/${encodeURIComponent(l.public_slug)}`,
+                value: l.click_count,
+              }))}
+            />
+            <RankList
+              title="Top referrers"
+              empty="No referrer data in this period. Direct visits and apps that strip the Referer header are not listed."
+              items={stats.top_referrers.map((r) => ({
+                key: r.referrer,
+                label: displayUrl(r.referrer),
+                markUrl: r.referrer,
+                value: r.clicks,
+              }))}
+            />
+          </div>
+          <LinksTable links={links} onChanged={load} />
+        </>
+      )}
     </div>
   );
 }

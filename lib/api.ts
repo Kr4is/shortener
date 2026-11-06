@@ -49,6 +49,12 @@ export interface StatsResponse {
   top_referrers: TopReferrer[];
 }
 
+export interface LinkStatsResponse {
+  link: ShortStats;
+  daily_clicks: DailyClicks[];
+  top_referrers: TopReferrer[];
+}
+
 export interface UrlPreview {
   url: string;
   title: string | null;
@@ -73,13 +79,57 @@ export async function createShortUrl(
     body: JSON.stringify(body),
   });
 
-  if (!res.ok) {
-    const error = await res.json().catch(() => null);
-    throw new Error(error?.detail || 'Failed to shorten URL');
-  }
+  if (!res.ok) throw await errorFrom(res, 'Could not shorten this URL');
 
   const data = await res.json();
   return data.public_slug;
+}
+
+async function errorFrom(res: Response, fallback: string): Promise<Error> {
+  const body = await res.json().catch(() => null);
+  const detail = body?.detail;
+  if (typeof detail === 'string') return new Error(detail);
+  if (res.status === 401)
+    return new Error('This action needs the admin API key');
+  if (res.status === 429)
+    return new Error('Too many requests. Wait a minute and try again');
+  return new Error(fallback);
+}
+
+export async function fetchUrl(slug: string): Promise<ShortStats | null> {
+  const res = await fetch(`/api/urls/${encodeURIComponent(slug)}`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw await errorFrom(res, 'Could not load link');
+  return res.json();
+}
+
+export async function fetchUrlStats(
+  slug: string,
+  days = 30
+): Promise<LinkStatsResponse | null> {
+  const res = await fetch(
+    `/api/urls/${encodeURIComponent(slug)}/stats?days=${days}`
+  );
+  if (res.status === 404) return null;
+  if (!res.ok) throw await errorFrom(res, 'Could not load link stats');
+  return res.json();
+}
+
+export async function updateExpiry(
+  slug: string,
+  change: { expiresInDays: number | null } | { expireNow: true }
+): Promise<ShortStats> {
+  const body =
+    'expireNow' in change
+      ? { expire_now: true }
+      : { expires_in_days: change.expiresInDays };
+  const res = await fetch(`/api/urls/${encodeURIComponent(slug)}`, {
+    method: 'PATCH',
+    headers: apiHeaders(true),
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw await errorFrom(res, 'Could not update expiry');
+  return res.json();
 }
 
 export async function deleteUrl(slug: string): Promise<void> {
@@ -87,10 +137,7 @@ export async function deleteUrl(slug: string): Promise<void> {
     method: 'DELETE',
     headers: apiHeaders(),
   });
-  if (!res.ok) {
-    const error = await res.json().catch(() => null);
-    throw new Error(error?.detail || 'Failed to delete URL');
-  }
+  if (!res.ok) throw await errorFrom(res, 'Could not delete link');
 }
 
 export async function fetchStats(
@@ -102,23 +149,20 @@ export async function fetchStats(
   if (to) params.set('to', to);
   const query = params.toString();
   const res = await fetch(`/api/stats${query ? `?${query}` : ''}`);
-  if (!res.ok) throw new Error('Failed to fetch stats');
+  if (!res.ok) throw await errorFrom(res, 'Could not load stats');
   return res.json();
 }
 
 export async function fetchUrls(): Promise<ShortStats[]> {
   const res = await fetch('/api/urls');
-  if (!res.ok) throw new Error('Failed to fetch URLs');
+  if (!res.ok) throw await errorFrom(res, 'Could not load links');
   return res.json();
 }
 
 export async function fetchUrlPreview(url: string): Promise<UrlPreview> {
   const params = new URLSearchParams({ url });
   const res = await fetch(`/api/preview?${params}`);
-  if (!res.ok) {
-    const error = await res.json().catch(() => null);
-    throw new Error(error?.detail || 'Failed to fetch preview');
-  }
+  if (!res.ok) throw await errorFrom(res, 'No preview');
   return res.json();
 }
 
