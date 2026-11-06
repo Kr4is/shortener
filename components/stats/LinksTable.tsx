@@ -1,283 +1,463 @@
 'use client';
 
-import QrCodeModal from '@/components/shorten/QrCodeModal';
-import { Badge } from '@/components/ui/Badge';
+import QrDialog from '@/components/shorten/QrDialog';
 import Button from '@/components/ui/Button';
-import { Card, CardTitle } from '@/components/ui/Card';
-import ConfirmDialog from '@/components/ui/ConfirmDialog';
+import ConfirmDelete from '@/components/ui/ConfirmDelete';
 import Input from '@/components/ui/Input';
+import Segmented from '@/components/ui/Segmented';
+import DomainMark from '@/components/ui/DomainMark';
+import StateTag from '@/components/ui/StateTag';
 import { deleteUrl, ShortStats } from '@/lib/api';
-import { formatDate, truncateUrl } from '@/lib/utils';
-import {
-  Check,
-  Copy,
-  ExternalLink,
-  Link2,
-  QrCode,
-  Search,
-  Trash2,
-} from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useHotkeys } from '@/lib/hotkeys';
+import { copyText, LinkState, linkState, shortUrl } from '@/lib/links';
+import { cn, displayUrl, formatDate, relativeTime } from '@/lib/utils';
+import { ArrowDown, ArrowUp, Copy, QrCode, Search, Trash2 } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+type SortKey =
+  | 'slug'
+  | 'destination'
+  | 'clicks'
+  | 'created'
+  | 'last'
+  | 'expires';
+type Filter = 'all' | LinkState;
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      toast.success('Copied to clipboard');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      toast.error('Could not copy to clipboard');
-    }
+const COLUMNS: {
+  key: SortKey;
+  label: string;
+  className?: string;
+  numeric?: boolean;
+}[] = [
+  { key: 'slug', label: 'Short link', className: 'w-auto md:w-[22%]' },
+  {
+    key: 'destination',
+    label: 'Destination',
+    className: 'hidden md:table-cell',
+  },
+  { key: 'clicks', label: 'Clicks', numeric: true, className: 'w-[4.5rem]' },
+  {
+    key: 'last',
+    label: 'Last click',
+    className: 'hidden w-[8.5rem] pl-4 lg:table-cell',
+  },
+  {
+    key: 'created',
+    label: 'Created',
+    className: 'hidden w-[7.5rem] lg:table-cell',
+  },
+  {
+    key: 'expires',
+    label: 'Status',
+    className: 'hidden w-[10.5rem] sm:table-cell',
+  },
+];
+
+function sortValue(link: ShortStats, key: SortKey): string | number {
+  switch (key) {
+    case 'slug':
+      return link.public_slug.toLowerCase();
+    case 'destination':
+      return displayUrl(link.original_url).toLowerCase();
+    case 'clicks':
+      return link.click_count;
+    case 'created':
+      return new Date(link.created_at).getTime();
+    case 'last':
+      return link.last_clicked_at
+        ? new Date(link.last_clicked_at).getTime()
+        : 0;
+    case 'expires':
+      return link.expires_at
+        ? new Date(link.expires_at).getTime()
+        : Number.MAX_SAFE_INTEGER;
+  }
+}
+
+export default function LinksTable({
+  links,
+  onChanged,
+}: {
+  links: ShortStats[];
+  onChanged: () => void;
+}) {
+  const router = useRouter();
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [sort, setSort] = useState<{ key: SortKey; dir: 'asc' | 'desc' }>({
+    key: 'created',
+    dir: 'desc',
+  });
+  const [cursor, setCursor] = useState(-1);
+  const [deleteTarget, setDeleteTarget] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [qrSlug, setQrSlug] = useState<string | null>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const rowRefs = useRef<(HTMLTableRowElement | null)[]>([]);
+
+  const counts = useMemo(() => {
+    const c = { all: links.length, active: 0, expiring: 0, expired: 0 };
+    for (const l of links) c[linkState(l)] += 1;
+    return c;
+  }, [links]);
+
+  const rows = useMemo(() => {
+    const q = search.toLowerCase().trim();
+    const filtered = links.filter((l) => {
+      if (filter !== 'all' && linkState(l) !== filter) return false;
+      if (!q) return true;
+      return (
+        l.original_url.toLowerCase().includes(q) ||
+        l.public_slug.toLowerCase().includes(q)
+      );
+    });
+    const dir = sort.dir === 'asc' ? 1 : -1;
+    return [...filtered].sort((a, b) => {
+      const va = sortValue(a, sort.key);
+      const vb = sortValue(b, sort.key);
+      return va < vb ? -dir : va > vb ? dir : 0;
+    });
+  }, [links, search, filter, sort]);
+
+  useEffect(() => {
+    setCursor((c) => Math.min(c, rows.length - 1));
+  }, [rows.length]);
+
+  useEffect(() => {
+    if (cursor >= 0)
+      rowRefs.current[cursor]?.scrollIntoView({ block: 'nearest' });
+  }, [cursor]);
+
+  const copy = async (slug: string) => {
+    if (await copyText(shortUrl(slug))) toast.success(`Copied /s/${slug}`);
+    else toast.error('Clipboard blocked. Copy the link manually.');
   };
 
-  return (
-    <Button variant="ghost" size="sm" onClick={handleCopy}>
-      {copied ? (
-        <Check className="h-3.5 w-3.5" />
-      ) : (
-        <Copy className="h-3.5 w-3.5" />
-      )}
-    </Button>
-  );
-}
+  const selected = cursor >= 0 ? rows[cursor] : undefined;
 
-interface LinksTableProps {
-  links: ShortStats[];
-  onDelete?: () => void;
-}
+  useHotkeys({
+    '/': (e) => {
+      e.preventDefault();
+      searchRef.current?.focus();
+    },
+    j: () => rows.length && setCursor((c) => Math.min(rows.length - 1, c + 1)),
+    k: () => rows.length && setCursor((c) => Math.max(0, c - 1)),
+    ArrowDown: (e) => {
+      if (cursor < 0) return;
+      e.preventDefault();
+      setCursor((c) => Math.min(rows.length - 1, c + 1));
+    },
+    ArrowUp: (e) => {
+      if (cursor < 0) return;
+      e.preventDefault();
+      setCursor((c) => Math.max(0, c - 1));
+    },
+    Enter: () => {
+      if (selected)
+        router.push(`/links/${encodeURIComponent(selected.public_slug)}`);
+    },
+    c: () => {
+      if (selected) copy(selected.public_slug);
+    },
+    Escape: () => setCursor(-1),
+  });
 
-export default function LinksTable({ links, onDelete }: LinksTableProps) {
-  const [search, setSearch] = useState('');
-  const [deleteTarget, setDeleteTarget] = useState<ShortStats | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const [qrUrl, setQrUrl] = useState<string | null>(null);
-
-  const filtered = useMemo(() => {
-    const q = search.toLowerCase().trim();
-    if (!q) return links;
-    return links.filter(
-      (l) =>
-        l.original_url.toLowerCase().includes(q) ||
-        l.public_slug.toLowerCase().includes(q) ||
-        (l.custom_slug && l.custom_slug.toLowerCase().includes(q)) ||
-        l.secret_key.toLowerCase().includes(q)
+  const toggleSort = (key: SortKey) =>
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: key === 'slug' || key === 'destination' ? 'asc' : 'desc' }
     );
-  }, [links, search]);
 
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      await deleteUrl(deleteTarget.public_slug);
+      await deleteUrl(deleteTarget);
+      toast.success(`Deleted /s/${deleteTarget}`);
       setDeleteTarget(null);
-      toast.success('Link deleted');
-      onDelete?.();
+      onChanged();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to delete link');
+      toast.error(err instanceof Error ? err.message : 'Could not delete link');
     } finally {
       setDeleting(false);
     }
   };
 
-  if (links.length === 0) {
-    return (
-      <Card className="text-center py-14">
-        <div className="relative mx-auto mb-6 h-20 w-20">
-          <div className="absolute inset-0 rounded-full border border-accent/20" />
-          <div className="absolute inset-3 rounded-full border border-accent/30" />
-          <div className="absolute inset-6 rounded-full bg-accent/10 flex items-center justify-center">
-            <Link2 className="h-6 w-6 text-accent" />
-          </div>
-        </div>
-        <CardTitle className="normal-case text-base font-semibold text-foreground">
-          No links yet
-        </CardTitle>
-        <p className="text-muted mt-2 text-sm">
-          Create your first shortened URL on the home page.
-        </p>
-      </Card>
-    );
-  }
-
-  const shortUrl = (link: ShortStats) =>
-    `${typeof window !== 'undefined' ? window.location.origin : ''}/s/${link.public_slug}`;
-
   return (
-    <>
-      <Card>
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
-          <CardTitle className="normal-case text-base font-semibold text-foreground">
+    <section aria-labelledby="links-title" className="panel p-5">
+      <div className="mb-3 flex flex-col gap-3 border-b border-rule pb-3 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
+          <h2 id="links-title" className="text-[15px] font-semibold lg:pb-2.5">
             All links
-          </CardTitle>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
-            <Input
-              placeholder="Search links..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-9"
-            />
-          </div>
+          </h2>
+          <Segmented<Filter>
+            label="Filter by status"
+            hideLabel
+            value={filter}
+            onChange={setFilter}
+            options={[
+              { label: `All ${counts.all}`, value: 'all' },
+              { label: `Active ${counts.active}`, value: 'active' },
+              { label: `Expiring ${counts.expiring}`, value: 'expiring' },
+              { label: `Expired ${counts.expired}`, value: 'expired' },
+            ]}
+          />
         </div>
-        <p className="text-xs text-muted mb-4">
-          Showing {filtered.length} of {links.length} links
-        </p>
+        <div className="relative w-full lg:w-72">
+          <Search
+            aria-hidden
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            strokeWidth={1.75}
+          />
+          <Input
+            ref={searchRef}
+            type="search"
+            placeholder="Search slug or URL"
+            aria-label="Search links"
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCursor(-1);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'ArrowDown' || e.key === 'Enter') {
+                e.preventDefault();
+                (e.target as HTMLInputElement).blur();
+                setCursor(0);
+              }
+            }}
+            className="pl-9 pr-10"
+          />
+          <kbd className="kbd pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2">
+            /
+          </kbd>
+        </div>
+      </div>
 
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted py-8 text-center">
-            No links match your search.
-          </p>
-        ) : (
-          <>
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-muted">
-                    <th className="pb-3 pr-4 font-medium">Original URL</th>
-                    <th className="pb-3 pr-4 font-medium">Short link</th>
-                    <th className="pb-3 pr-4 font-medium">Clicks</th>
-                    <th className="pb-3 pr-4 font-medium">Created</th>
-                    <th className="pb-3 pr-4 font-medium">Last click</th>
-                    <th className="pb-3 font-medium">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((link) => (
-                    <tr
-                      key={link.secret_key}
-                      className="border-b border-border/50 hover:bg-accent/5 transition-colors"
-                    >
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className="text-foreground"
-                            title={link.original_url}
-                          >
-                            {truncateUrl(link.original_url)}
-                          </span>
-                          <a
-                            href={link.original_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-muted hover:text-foreground"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                          </a>
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <div className="flex items-center gap-1">
-                          <code className="font-mono text-accent text-xs">
-                            /s/{link.public_slug}
-                          </code>
-                          {link.is_expired && (
-                            <Badge className="bg-destructive/10 text-destructive border-destructive/25">
-                              Expired
-                            </Badge>
-                          )}
-                          <CopyButton text={shortUrl(link)} />
-                        </div>
-                      </td>
-                      <td className="py-3 pr-4">
-                        <Badge>{link.click_count}</Badge>
-                      </td>
-                      <td className="py-3 pr-4 text-muted">
-                        {formatDate(link.created_at)}
-                      </td>
-                      <td className="py-3 pr-4 text-muted">
-                        {formatDate(link.last_clicked_at)}
-                      </td>
-                      <td className="py-3">
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setQrUrl(shortUrl(link))}
-                          >
-                            <QrCode className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setDeleteTarget(link)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="md:hidden space-y-3">
-              {filtered.map((link) => (
-                <div
-                  key={link.secret_key}
-                  className="rounded-xl border border-border/80 bg-surface-elevated/50 p-4 space-y-2"
-                >
-                  <p className="text-foreground text-sm break-all">
-                    {truncateUrl(link.original_url, 60)}
-                  </p>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <code className="font-mono text-accent text-xs">
-                        /s/{link.public_slug}
-                      </code>
-                      {link.is_expired && (
-                        <Badge className="bg-destructive/10 text-destructive border-destructive/25">
-                          Expired
-                        </Badge>
+      {links.length === 0 ? (
+        <div className="py-10 text-sm text-muted">
+          No links yet.{' '}
+          <Link href="/" className="text-foreground underline">
+            Shorten your first URL
+          </Link>
+          .
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="py-10 text-sm text-muted">
+          Nothing matches{search ? ` “${search}”` : ''}
+          {filter !== 'all' ? ` in ${filter} links` : ''}.{' '}
+          <button
+            type="button"
+            className="text-foreground underline"
+            onClick={() => {
+              setSearch('');
+              setFilter('all');
+            }}
+          >
+            Clear filters
+          </button>
+        </div>
+      ) : (
+        <div className="-mx-5 overflow-x-auto px-5">
+          <table className="w-full table-fixed border-collapse text-sm">
+            <thead>
+              <tr className="text-left text-[13px] text-muted">
+                {COLUMNS.map((col) => {
+                  const active = sort.key === col.key;
+                  return (
+                    <th
+                      key={col.key}
+                      scope="col"
+                      aria-sort={
+                        active
+                          ? sort.dir === 'asc'
+                            ? 'ascending'
+                            : 'descending'
+                          : 'none'
+                      }
+                      className={cn(
+                        'pb-2 font-normal',
+                        col.numeric && 'text-right',
+                        col.className
                       )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Badge>{link.click_count} clicks</Badge>
-                      <CopyButton text={shortUrl(link)} />
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setQrUrl(shortUrl(link))}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => toggleSort(col.key)}
+                        className={cn(
+                          'inline-flex items-center gap-1 hover:text-foreground',
+                          active && 'text-foreground'
+                        )}
                       >
-                        <QrCode className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setDeleteTarget(link)}
+                        {col.label}
+                        {active &&
+                          (sort.dir === 'asc' ? (
+                            <ArrowUp className="h-3 w-3" strokeWidth={2} />
+                          ) : (
+                            <ArrowDown className="h-3 w-3" strokeWidth={2} />
+                          ))}
+                      </button>
+                    </th>
+                  );
+                })}
+                <th
+                  scope="col"
+                  className="w-[6.5rem] pb-2 text-right font-normal"
+                >
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((link, i) => {
+                const state = linkState(link);
+                const on = i === cursor;
+                const slug = link.public_slug;
+                return (
+                  <tr
+                    key={link.secret_key}
+                    ref={(el) => {
+                      rowRefs.current[i] = el;
+                    }}
+                    aria-selected={on}
+                    onClick={(e) => {
+                      if ((e.target as HTMLElement).closest('a,button')) return;
+                      setCursor(i);
+                    }}
+                    onDoubleClick={() =>
+                      router.push(`/links/${encodeURIComponent(slug)}`)
+                    }
+                    className={cn(
+                      'border-t border-rule transition-colors',
+                      on
+                        ? 'bg-accent/[0.07] shadow-[inset_2px_0_0_rgb(var(--accent))]'
+                        : 'hover:bg-foreground/[0.025]'
+                    )}
+                  >
+                    <td className="truncate py-2.5 pr-3">
+                      <Link
+                        href={`/links/${encodeURIComponent(slug)}`}
+                        className="font-mono text-[13px] font-medium text-foreground hover:text-accent hover:underline"
+                        title={`/s/${slug}`}
                       >
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted">
-                    Created {formatDate(link.created_at)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </Card>
+                        /s/{slug}
+                      </Link>
+                      <span
+                        className={cn(
+                          'block truncate text-[13px] md:hidden',
+                          'text-muted'
+                        )}
+                      >
+                        {displayUrl(link.original_url)}
+                      </span>
+                    </td>
+                    <td
+                      className={cn(
+                        'hidden truncate py-2.5 pr-3 md:table-cell',
+                        'text-muted'
+                      )}
+                      title={link.original_url}
+                    >
+                      <span className="flex items-center gap-2.5">
+                        <DomainMark url={link.original_url} size="sm" />
+                        <span className="truncate">
+                          {displayUrl(link.original_url)}
+                        </span>
+                      </span>
+                    </td>
+                    <td className="py-2.5 pr-3 text-right font-medium">
+                      {link.click_count}
+                    </td>
+                    <td
+                      className={cn(
+                        'hidden py-2.5 pl-4 pr-3 lg:table-cell',
+                        'text-muted'
+                      )}
+                      title={link.last_clicked_at ?? undefined}
+                    >
+                      {relativeTime(link.last_clicked_at, { narrow: true })}
+                    </td>
+                    <td
+                      className={cn(
+                        'hidden py-2.5 pr-3 lg:table-cell',
+                        'text-muted'
+                      )}
+                    >
+                      {formatDate(link.created_at)}
+                    </td>
+                    <td className="hidden py-2.5 pr-3 sm:table-cell">
+                      <StateTag state={state} />
+                      {link.expires_at && state !== 'expired' && (
+                        <span
+                          className={cn('ml-1.5 text-[13px]', 'text-muted')}
+                        >
+                          {relativeTime(link.expires_at, {
+                            narrow: true,
+                          }).replace(/^in /, '')}
+                        </span>
+                      )}
+                    </td>
+                    <td className="py-1.5 text-right">
+                      <div className="inline-flex gap-0.5">
+                        {[
+                          {
+                            label: 'Copy',
+                            icon: Copy,
+                            action: () => copy(slug),
+                          },
+                          {
+                            label: 'QR code for',
+                            icon: QrCode,
+                            action: () => setQrSlug(slug),
+                          },
+                          {
+                            label: 'Delete',
+                            icon: Trash2,
+                            action: () => setDeleteTarget(slug),
+                            danger: true,
+                          },
+                        ].map(({ label, icon: Icon, action, danger }) => (
+                          <Button
+                            key={label}
+                            size="icon"
+                            variant="ghost"
+                            onClick={action}
+                            aria-label={`${label} /s/${slug}`}
+                            className={cn(danger && 'hover:text-danger')}
+                          >
+                            <Icon className="h-4 w-4" strokeWidth={1.75} />
+                          </Button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          <p className="mt-3 border-t border-rule pt-3 text-[13px] text-muted">
+            {rows.length} of {links.length} links · <kbd className="kbd">j</kbd>{' '}
+            <kbd className="kbd">k</kbd> move · <kbd className="kbd">↵</kbd>{' '}
+            open · <kbd className="kbd">c</kbd> copy
+          </p>
+        </div>
+      )}
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete link"
-        message={`Are you sure you want to delete /s/${deleteTarget?.public_slug}? This cannot be undone.`}
+      <ConfirmDelete
+        slug={deleteTarget}
+        loading={deleting}
         onConfirm={handleDelete}
         onCancel={() => setDeleteTarget(null)}
-        loading={deleting}
       />
-
-      <QrCodeModal
-        url={qrUrl || ''}
-        open={!!qrUrl}
-        onClose={() => setQrUrl(null)}
+      <QrDialog
+        slug={qrSlug}
+        url={qrSlug ? shortUrl(qrSlug) : ''}
+        onClose={() => setQrSlug(null)}
       />
-    </>
+    </section>
   );
 }

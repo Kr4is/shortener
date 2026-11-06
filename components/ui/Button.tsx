@@ -1,42 +1,42 @@
 import { cn } from '@/lib/utils';
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'ghost' | 'outline' | 'destructive';
-  size?: 'sm' | 'md' | 'lg';
+export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
+  size?: 'sm' | 'md' | 'lg' | 'icon';
 }
 
+export const buttonClass = (
+  variant: ButtonProps['variant'] = 'secondary',
+  size: ButtonProps['size'] = 'md'
+) =>
+  cn(
+    'inline-flex shrink-0 select-none items-center justify-center gap-2 rounded font-medium',
+    'transition-[background-color,border-color,color] duration-100',
+    'disabled:cursor-not-allowed disabled:opacity-40',
+    variant === 'primary' &&
+      'bg-accent text-accent-foreground shadow-card hover:bg-accent/90 active:bg-accent/80',
+    variant === 'secondary' &&
+      'border border-rule-strong bg-panel text-foreground shadow-card hover:bg-foreground/[0.03] hover:border-foreground/30',
+    variant === 'ghost' &&
+      'text-muted hover:bg-foreground/[0.06] hover:text-foreground',
+    variant === 'danger' &&
+      'border border-rule-strong bg-panel text-danger shadow-card hover:border-danger/50 hover:bg-danger/[0.06]',
+    size === 'sm' && 'h-8 px-3 text-[13px]',
+    size === 'md' && 'h-10 px-4 text-sm',
+    size === 'lg' && 'h-11 px-5 text-[15px]',
+    size === 'icon' && 'h-8 w-8 text-[13px]'
+  );
+
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  (
-    { className, variant = 'primary', size = 'md', children, ...props },
-    ref
-  ) => {
-    return (
-      <button
-        ref={ref}
-        className={cn(
-          'inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed active:scale-[0.98]',
-          variant === 'primary' &&
-            'bg-accent text-accent-foreground hover:brightness-105 shadow-accent-sm',
-          variant === 'secondary' &&
-            'bg-surface-elevated text-foreground border border-border hover:border-accent/20 hover:bg-accent/5',
-          variant === 'ghost' &&
-            'text-foreground hover:bg-accent/5 hover:text-foreground',
-          variant === 'outline' &&
-            'border border-border text-foreground hover:border-accent/30 hover:bg-accent/5',
-          variant === 'destructive' &&
-            'bg-destructive/10 text-destructive border border-destructive/20 hover:bg-destructive/15',
-          size === 'sm' && 'px-3 py-1.5 text-sm',
-          size === 'md' && 'px-4 py-2 text-sm',
-          size === 'lg' && 'px-6 py-2.5 text-base',
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </button>
-    );
-  }
+  ({ className, variant, size, type = 'button', ...props }, ref) => (
+    <button
+      ref={ref}
+      type={type}
+      className={cn(buttonClass(variant, size), className)}
+      {...props}
+    />
+  )
 );
 
 Button.displayName = 'Button';

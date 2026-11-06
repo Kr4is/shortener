@@ -1,0 +1,50 @@
+# Single-image build used only for homelab PR previews: web + API + a throwaway
+# PostgreSQL seeded with demo data, serving on $PORT (8080). Not for production;
+# use docker-compose.yml with Dockerfile.api / Dockerfile.web for real deployments.
+
+FROM node:20-bookworm-slim AS web
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci
+COPY . .
+ENV FASTAPI_INTERNAL_URL=http://127.0.0.1:8000 \
+    NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
+RUN npm run build
+
+FROM python:3.12-slim-bookworm
+WORKDIR /app
+
+RUN mkdir -p /etc/postgresql-common \
+    && echo 'create_main_cluster = false' > /etc/postgresql-common/createcluster.conf \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends postgresql \
+    && rm -rf /var/lib/apt/lists/* \
+    && pip install --no-cache-dir uv
+
+COPY --from=web /usr/local/bin/node /usr/local/bin/node
+
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --no-dev --no-install-project
+ENV PATH="/app/.venv/bin:$PATH"
+
+COPY api/ ./api/
+COPY db/ ./db/
+COPY scripts/preview-entrypoint.sh scripts/preview-seed.sql ./scripts/
+
+COPY --from=web /app/.next/standalone ./web/
+COPY --from=web /app/.next/static ./web/.next/static
+COPY --from=web /app/public ./web/public
+
+RUN useradd --system --uid 1001 --home /tmp app \
+    && chmod +x ./scripts/preview-entrypoint.sh
+USER 1001
+
+ENV PORT=8080 \
+    NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1 \
+    RATE_LIMIT_ENABLED=false \
+    DATABASE_URL=postgresql+psycopg://shortener@127.0.0.1:5432/shortener
+
+EXPOSE 8080
+CMD ["./scripts/preview-entrypoint.sh"]

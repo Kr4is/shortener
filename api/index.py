@@ -16,6 +16,7 @@ from .auth import require_api_key
 from .database import check_database_connection, get_db
 from .models import (
     DailyClicks,
+    LinkStatsResponse,
     ShortStats,
     StatsResponse,
     StatsSummary,
@@ -24,6 +25,7 @@ from .models import (
     UrlCreate,
     UrlCreateResponse,
     UrlPreviewResponse,
+    UrlUpdate,
 )
 from .preview import fetch_url_preview
 from .slug import public_slug
@@ -43,21 +45,31 @@ NOT_FOUND_HTML = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Link not found</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a;
-           display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    .card { text-align: center; padding: 2.5rem; max-width: 28rem; }
-    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
-    p { color: #64748b; margin: 0 0 1.5rem; }
-    a { color: #4f46e5; text-decoration: none; font-weight: 500; }
-    a:hover { text-decoration: underline; }
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+           background: #f7f8fa; color: #111827; display: flex;
+           align-items: center; justify-content: center;
+           min-height: 100vh; margin: 0; padding: 1.5rem; }
+    .card { max-width: 26rem; }
+    h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 0.5rem; }
+    p { color: #5f6775; line-height: 1.55; margin: 0 0 1.5rem; }
+    a { display: inline-block; background: #2552c7; color: #fff;
+        padding: 0.55rem 1rem; border-radius: 6px; font-weight: 500;
+        text-decoration: none; font-size: 0.875rem; }
+    a:hover { background: #1f47ae; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0e1014; color: #e4e7ec; }
+      p { color: #969daa; }
+      a { background: #7aa0ff; color: #0a1020; }
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Link not found</h1>
-    <p>This short link does not exist or may have been deleted.</p>
-    <a href="/">Go home</a>
+    <p>This short link doesn’t exist. It may have been deleted,
+    or the address is mistyped.</p>
+    <a href="/">Shorten a new link</a>
   </div>
 </body>
 </html>"""
@@ -69,21 +81,30 @@ EXPIRED_HTML = """<!DOCTYPE html>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Link expired</title>
   <style>
-    body { font-family: system-ui, sans-serif; background: #f8fafc; color: #0f172a;
-           display: flex; align-items: center; justify-content: center;
-           min-height: 100vh; margin: 0; }
-    .card { text-align: center; padding: 2.5rem; max-width: 28rem; }
-    h1 { font-size: 1.5rem; margin: 0 0 0.5rem; }
-    p { color: #64748b; margin: 0 0 1.5rem; }
-    a { color: #4f46e5; text-decoration: none; font-weight: 500; }
-    a:hover { text-decoration: underline; }
+    :root { color-scheme: light dark; }
+    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+           background: #f7f8fa; color: #111827; display: flex;
+           align-items: center; justify-content: center;
+           min-height: 100vh; margin: 0; padding: 1.5rem; }
+    .card { max-width: 26rem; }
+    h1 { font-size: 1.375rem; font-weight: 600; margin: 0 0 0.5rem; }
+    p { color: #5f6775; line-height: 1.55; margin: 0 0 1.5rem; }
+    a { display: inline-block; background: #2552c7; color: #fff;
+        padding: 0.55rem 1rem; border-radius: 6px; font-weight: 500;
+        text-decoration: none; font-size: 0.875rem; }
+    a:hover { background: #1f47ae; }
+    @media (prefers-color-scheme: dark) {
+      body { background: #0e1014; color: #e4e7ec; }
+      p { color: #969daa; }
+      a { background: #7aa0ff; color: #0a1020; }
+    }
   </style>
 </head>
 <body>
   <div class="card">
     <h1>Link expired</h1>
-    <p>This short link has expired and is no longer available.</p>
-    <a href="/">Go home</a>
+    <p>The owner set this short link to expire, so it no longer redirects.</p>
+    <a href="/">Shorten a new link</a>
   </div>
 </body>
 </html>"""
@@ -198,6 +219,57 @@ def export_urls(db: Session = Depends(get_db)):
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=links.csv"},
     )
+
+
+@app.get("/api/urls/{slug}", response_model=ShortStats)
+def get_url(slug: str, db: Session = Depends(get_db)):
+    short = crud.get_short_by_key(db=db, url_key=slug)
+    if not short:
+        raise_not_found(slug)
+    return ShortStats.from_short(short)
+
+
+@app.get("/api/urls/{slug}/stats", response_model=LinkStatsResponse)
+def get_url_stats(
+    slug: str,
+    db: Session = Depends(get_db),
+    days: int = Query(default=30, ge=1, le=365),
+):
+    short = crud.get_short_by_key(db=db, url_key=slug)
+    if not short:
+        raise_not_found(slug)
+    daily = crud.get_daily_clicks(db=db, days=days, secret_key=short.secret_key)
+    referrers = crud.get_top_referrers(db=db, limit=10, secret_key=short.secret_key)
+    return LinkStatsResponse(
+        link=ShortStats.from_short(short),
+        daily_clicks=[DailyClicks(date=day, clicks=clicks) for day, clicks in daily],
+        top_referrers=[
+            TopReferrer(referrer=referrer, clicks=clicks)
+            for referrer, clicks in referrers
+        ],
+    )
+
+
+@app.patch("/api/urls/{slug}", response_model=ShortStats)
+@limiter.limit("20/minute")
+def update_url(
+    request: Request,
+    slug: str,
+    payload: UrlUpdate,
+    db: Session = Depends(get_db),
+    _: None = Depends(require_api_key),
+):
+    if payload.expires_in_days is not None and payload.expires_in_days <= 0:
+        raise_bad_request(message="expires_in_days must be a positive number")
+    short = crud.update_expiry(
+        db=db,
+        slug=slug,
+        expires_in_days=payload.expires_in_days,
+        expire_now=payload.expire_now,
+    )
+    if not short:
+        raise_not_found(slug)
+    return ShortStats.from_short(short)
 
 
 @app.delete("/api/urls/{slug}")

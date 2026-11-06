@@ -204,3 +204,53 @@ def test_api_key_required_when_configured(client, monkeypatch):
     assert response.status_code == 200
 
     auth.ADMIN_API_KEY = None
+
+
+def test_get_single_url(client):
+    slug = _create(client, "https://example.com/single")
+    response = client.get(f"/api/urls/{slug}")
+    assert response.status_code == 200
+    assert response.json()["original_url"] == "https://example.com/single"
+
+    assert client.get("/api/urls/does-not-exist").status_code == 404
+
+
+def test_url_stats_endpoint(client):
+    slug = _create(client, "https://example.com/detail")
+    client.get(
+        f"/s/{slug}",
+        follow_redirects=False,
+        headers={"referer": "https://news.ycombinator.com/"},
+    )
+    client.get(f"/s/{slug}", follow_redirects=False)
+
+    response = client.get(f"/api/urls/{slug}/stats?days=7")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["link"]["click_count"] == 2
+    assert len(data["daily_clicks"]) == 7
+    assert sum(d["clicks"] for d in data["daily_clicks"]) == 2
+    assert data["top_referrers"] == [
+        {"referrer": "https://news.ycombinator.com/", "clicks": 1}
+    ]
+
+
+def test_update_expiry(client):
+    slug = _create(client, "https://example.com/patch-me")
+
+    response = client.patch(f"/api/urls/{slug}", json={"expires_in_days": 30})
+    assert response.status_code == 200
+    assert response.json()["expires_at"] is not None
+    assert response.json()["is_expired"] is False
+
+    response = client.patch(f"/api/urls/{slug}", json={"expire_now": True})
+    assert response.json()["is_expired"] is True
+    assert client.get(f"/s/{slug}", follow_redirects=False).status_code == 410
+
+    response = client.patch(f"/api/urls/{slug}", json={"expires_in_days": None})
+    assert response.json()["expires_at"] is None
+    assert client.get(f"/s/{slug}", follow_redirects=False).status_code == 307
+
+    bad = client.patch(f"/api/urls/{slug}", json={"expires_in_days": -1})
+    assert bad.status_code == 400
+    assert client.patch("/api/urls/missing", json={}).status_code == 404

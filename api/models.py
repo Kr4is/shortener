@@ -14,6 +14,11 @@ class UrlCreate(BaseModel):
     expires_in_days: int | None = None
 
 
+class UrlUpdate(BaseModel):
+    expires_in_days: int | None = None
+    expire_now: bool = False
+
+
 class Short(Base):
     __tablename__ = "shorts"
 
@@ -115,3 +120,9 @@ class UrlCreateResponse(BaseModel):
 class UrlPreviewResponse(BaseModel):
     url: str
     title: str | None
+
+
+class LinkStatsResponse(BaseModel):
+    link: ShortStats
+    daily_clicks: list[DailyClicks]
+    top_referrers: list[TopReferrer]
